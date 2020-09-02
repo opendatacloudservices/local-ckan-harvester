@@ -12,7 +12,7 @@ client.connect();
 node_fetch_1.default('https://ckan.govdata.de/api/3/action/package_list')
     .then(res => res.json())
     .then(async (body) => {
-    for (let i = 0; i < body.result.length; i += 1) {
+    for (let i = 7513; i < body.result.length; i += 1) {
         // get detailed information on each package
         console.log(body.result[i], i, body.result.length);
         await node_fetch_1.default('https://ckan.govdata.de/api/3/action/package_show?id=' + body.result[i])
@@ -122,37 +122,32 @@ node_fetch_1.default('https://ckan.govdata.de/api/3/action/package_list')
                         return Promise.resolve();
                     }
                 })
-                    .then(() => {
-                    if (r.resources && r.resources.length > 0) {
-                        const query = `INSERT INTO govdata_resource (id, package_id, name,
-                    format, cache_last_updated, issued, modified, last_modified,
-                    created, license_attribution_by_text, size, conforms_to,
-                    state, hash, description, mimetype_inner, url_type,
-                    revision_id, mimetype, cache_url, license, language,
-                    url, uri, position, access_url, resource_type)
-                    SELECT 
-                    (data->>'id')::text, (data->>'package_id')::text, (data->>'name')::text,
-                    (data->>'format')::text, (data->>'cache_last_updated')::timestamp, (data->>'issued')::timestamp, (data->>'modified')::timestamp, (data->>'last_modified')::timestamp,
-                    (data->>'created')::timestamp, (data->>'licenseAttributionByText')::text, CAST((data->>'size')::text AS DOUBLE PRECISION), (data->>'conforms_to')::text,
-                    (data->>'state')::text, (data->>'hash')::text, (data->>'description')::text, (data->>'mimetype_inner')::text, (data->>'url_type')::text,
-                    (data->>'revision_id')::text, (data->>'mimetype')::text, (data->>'cache_url')::text, (data->>'license')::text, (data->>'language')::text,
-                    (data->>'url')::text, (data->>'uri')::text, (data->>'position')::integer, (data->>'access_url')::text, (data->>'resource_type')::text
-                    FROM
-                      json_array_elements($1::json) AS arr(data)`;
-                        const data = JSON.stringify(r.resources.map((d) => {
-                            d.package_id = r.id;
-                            return d;
-                        }));
-                        return client.query(query, [data])
-                            .then(() => {
-                            return Promise.resolve();
-                        });
-                    }
-                    else {
-                        return Promise.resolve();
-                    }
-                })
                     .then(async () => {
+                    if (r.resources && r.resources.length > 0) {
+                        for (let j = 0; j < r.resources.length; j += 1) {
+                            // TODO: Revision ID
+                            const res = await client.query('SELECT id FROM govdata_resources WHERE id = $1', [r.resources[j].id]);
+                            if (res.rows.length === 0) {
+                                const query = `INSERT INTO govdata_resources (id, name,
+                        format, cache_last_updated, issued, modified, last_modified,
+                        created, license_attribution_by_text, size, conforms_to,
+                        state, hash, description, mimetype_inner, url_type,
+                        revision_id, mimetype, cache_url, license, language,
+                        url, uri, position, access_url, resource_type)
+                        SELECT 
+                        (data->>'id')::text, (data->>'name')::text,
+                        (data->>'format')::text, (data->>'cache_last_updated')::timestamp, (data->>'issued')::timestamp, (data->>'modified')::timestamp, (data->>'last_modified')::timestamp,
+                        (data->>'created')::timestamp, (data->>'licenseAttributionByText')::text, CAST((data->>'size')::text AS DOUBLE PRECISION), (data->>'conforms_to')::text,
+                        (data->>'state')::text, (data->>'hash')::text, (data->>'description')::text, (data->>'mimetype_inner')::text, (data->>'url_type')::text,
+                        (data->>'revision_id')::text, (data->>'mimetype')::text, (data->>'cache_url')::text, (data->>'license')::text, (data->>'language')::text,
+                        (data->>'url')::text, (data->>'uri')::text, (data->>'position')::integer, (data->>'access_url')::text, (data->>'resource_type')::text
+                        FROM
+                          json_array_elements($1::json) AS arr(data)`;
+                                await client.query(query, [JSON.stringify([r.resources[j]])]);
+                            }
+                            await client.query('INSERT INTO govdata_ref_resources_packages (package_id, resource_id) VALUES ($1, $2)', [r.id, r.resources[j].id]);
+                        }
+                    }
                     for (let j = 0; j < r.groups.length; j += 1) {
                         const res = await client.query('SELECT id FROM govdata_groups WHERE id = $1', [r.groups[j].id]);
                         if (res.rows.length === 0) {
