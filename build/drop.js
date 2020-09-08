@@ -8,8 +8,8 @@ dotenv.config();
 // connect to postgres (via env vars params)
 const client = new pg_1.Client();
 client.connect();
-// create all tables with the prefix provided by the cli argument
-index_1.initTables(client, process.argv[2]).catch(err => {
+// truncate all tables with the prefix provided by the cli argument
+index_1.dropTables(client, process.argv[2]).catch(err => {
     throw err;
 });
-//# sourceMappingURL=init.js.map
+//# sourceMappingURL=drop.js.map

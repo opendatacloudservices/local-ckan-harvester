@@ -1,4 +1,4 @@
-import {initTables} from './postgres/index';
+import {dropTables} from './postgres/index';
 import * as dotenv from 'dotenv';
 import {Client} from 'pg';
 
@@ -9,7 +9,7 @@ dotenv.config();
 const client = new Client();
 client.connect();
 
-// create all tables with the prefix provided by the cli argument
-initTables(client, process.argv[2]).catch(err => {
+// truncate all tables with the prefix provided by the cli argument
+dropTables(client, process.argv[2]).catch(err => {
   throw err;
 });
