@@ -2,15 +2,13 @@
   "name": "local-govdata-harvester",
   "version": "1.0.0",
   "description": "Harvesting data sets from govdata",
-  "main": "index.js",
+  "main": "build/src/index.js",
   "scripts": {
+    "test": "jest test/test.js",
     "check": "gts check",
     "clean": "gts clean",
     "compile": "tsc",
     "fix": "gts fix",
-    "prepare": "npm run compile",
-    "pretest": "npm run compile",
-    "posttest": "npm run check",
     "exec": "tsc && node build/src/index"
   },
   "repository": {
@@ -29,6 +27,7 @@
     "@types/pg": "^7.14.4",
     "eslint": "^7.7.0",
     "gts": "^2.0.2",
+    "jest": "^26.4.2",
     "ts-node": "^9.0.0",
     "typescript": "^3.8.3"
   },

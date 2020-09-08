@@ -1,0 +1,11 @@
+import { Client, QueryResult } from 'pg';
+import { CkanPackage } from '../ckan/index';
+export declare const packageGetAction: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<string>;
+export declare const processPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const removePackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const insertPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<QueryResult>;
+export declare const packageUpsertOrganization: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<QueryResult>;
+export declare const packageInsertExtras: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const packageInsertResources: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const packageInsertGroups: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const packageInsertTags: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;

@@ -20,16 +20,16 @@ const tables = [
     'ref_tags_packages',
     'ref_resources_packages',
     'resources',
-    'tags'
+    'tags',
 ];
-Promise.all(tables.map((name) => {
+Promise.all(tables.map(name => {
     return client.query(`TRUNCATE ${prefix}${name}`);
 }))
     .then(() => {
     process_1.stdout.write('All tables truncated.');
-    process.exit();
+    throw Error('Tables reset.');
 })
-    .catch((err) => {
+    .catch(err => {
     throw err;
 });
 //# sourceMappingURL=reset.js.map

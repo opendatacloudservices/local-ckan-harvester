@@ -1,0 +1,14 @@
+{
+  "help": "https://ckan.govdata.de/api/3/action/help_show?name=package_list",
+  "success": true,
+  "result": [
+    "100-jahre-stadtgrun-stadtpark-und-volkspark20159",
+    "100m-hohenlinien-wuppertal-2015",
+    "100m-hohenlinien-wuppertal-2015-mit-freistellung",
+    "10m-hohenlinien-wuppertal-2015",
+    "10m-hohenlinien-wuppertal-2015-mit-freistellung",
+    "10-tatigkeitsbericht-zum-datenschutz-1987",
+    "11-tatigkeitsbericht-zum-datenschutz-1988",
+    "12345-dibenzopyrene-ae-im-trockenen-sediment-2017"
+  ]
+}

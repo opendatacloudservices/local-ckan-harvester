@@ -1,8 +1,8 @@
 // DANGER ZONE - THIS REMOVES ALL METADATA FROM THE DATABASE !!!
 
 import * as dotenv from 'dotenv';
-import {Client, QueryResult} from 'pg';
-import { stdout } from 'process';
+import {Client} from 'pg';
+import {stdout} from 'process';
 
 // get environmental variables
 dotenv.config();
@@ -16,24 +16,26 @@ client.connect();
 const prefix = 'govdata_';
 
 const tables = [
-    'extras',
-    'groups',
-    'organizations',
-    'packages',
-    'ref_groups_packages',
-    'ref_tags_packages',
-    'ref_resources_packages',
-    'resources',
-    'tags'
+  'extras',
+  'groups',
+  'organizations',
+  'packages',
+  'ref_groups_packages',
+  'ref_tags_packages',
+  'ref_resources_packages',
+  'resources',
+  'tags',
 ];
 
-Promise.all(tables.map((name) => {
-    return client.query(`TRUNCATE ${prefix}${name}`); 
-}))
-.then(() => {
+Promise.all(
+  tables.map(name => {
+    return client.query(`TRUNCATE ${prefix}${name}`);
+  })
+)
+  .then(() => {
     stdout.write('All tables truncated.');
-    process.exit();
-})
-.catch((err) => {
+    throw Error('Tables reset.');
+  })
+  .catch(err => {
     throw err;
-});
+  });

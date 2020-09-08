@@ -1,0 +1,528 @@
+{
+    "help": "https://ckan.govdata.de/api/3/action/help_show?name=package_show",
+    "success": true,
+    "result": {
+        "license_title": "",
+        "maintainer": "Iwohn, Axel, Herr",
+        "relationships_as_object": [],
+        "private": false,
+        "maintainer_email": null,
+        "num_tags": 16,
+        "id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+        "metadata_created": "2020-08-20T10:51:01.932997",
+        "metadata_modified": "2020-08-23T08:35:37.926967",
+        "author": "Behörde für Umwelt und Energie (BUE), Präsidialabteilung (BUE), P 3 - Öffentlichkeitsarbeit und Kommunikation, P 32 - Presse und Online-Kommunikation",
+        "author_email": null,
+        "state": "active",
+        "version": "14.0",
+        "creator_user_id": "f512f73d-bed2-439d-8f6f-3fbc6048b24e",
+        "type": "dataset",
+        "resources": [
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "9ec9c7a8-edda-4231-8a63-4cbed26b4c09",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "GML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Download WFS Karte 100 Jahre Stadtgrün - Stadtpark und Volkspark (GML)",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250641",
+                "url": "https://geodienste.hamburg.de/HH_WFS_Stadtgruen?service=WFS&request=GetFeature&VERSION=1.1.0&typename=bsu_hh_100jstadtgruen_poi%252Cbsu_hh_100jstadtgruen_strecken%252Cbsu_hh_100jstadtgruen_umring",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/80627c1a-2db4-4093-8fdf-92a347682c4d",
+                "last_modified": null,
+                "position": 0,
+                "access_url": "https://geodienste.hamburg.de/HH_WFS_Stadtgruen?service=WFS&request=GetFeature&VERSION=1.1.0&typename=bsu_hh_100jstadtgruen_poi%252Cbsu_hh_100jstadtgruen_strecken%252Cbsu_hh_100jstadtgruen_umring",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "d5e5d707-347c-486f-b0fb-1f679fcb19ab",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "WFS",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Dienst \"WFS 100 Jahre Stadtgruen\" (GetCapabilities)",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250636",
+                "url": "https://geodienste.hamburg.de/HH_WFS_Stadtgruen?REQUEST=GetCapabilities&SERVICE=WFS",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/43a8339c-86a0-43ee-b089-d08178ea5137",
+                "last_modified": null,
+                "position": 1,
+                "access_url": "https://geodienste.hamburg.de/HH_WFS_Stadtgruen?REQUEST=GetCapabilities&SERVICE=WFS",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "1210b3b9-80a3-4272-bb63-2451eb416c0a",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "HTML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Interaktive Karte Hamburger Stadtpark",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250640",
+                "url": "http://www.hamburg.de/fhh-permalink/4283778",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/3d98d415-275f-4cee-a8a4-d40c11207273",
+                "last_modified": null,
+                "position": 2,
+                "access_url": "http://www.hamburg.de/fhh-permalink/4283778",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "cdc12e1f-cdb3-4609-acdc-41952d1656dd",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "HTML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Interaktive Karte Hamburger Volkspark",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250643",
+                "url": "http://www.hamburg.de/fhh-permalink/4283780",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/980c5922-44d0-45c2-ac67-7b2b69f68744",
+                "last_modified": null,
+                "position": 3,
+                "access_url": "http://www.hamburg.de/fhh-permalink/4283780",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "b298f667-0f15-46e4-a669-178891f82c24",
+                "size": 57920,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "5c2b2742b8a625a3d3e1d2f333e5922c6a6abd3361d238f35a4a3b7fcf7045db",
+                "description": "",
+                "format": "HTML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Metadatenbeschreibung aus dem MetaVer",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250633",
+                "url": "http://metaver.de/trefferanzeige?docuuid=4E67DF32-AAC0-4410-A215-4110F8D50BBD",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/a06edd7a-d986-4f55-89c5-03e79120ee7b",
+                "last_modified": null,
+                "position": 4,
+                "access_url": "http://metaver.de/trefferanzeige?docuuid=4E67DF32-AAC0-4410-A215-4110F8D50BBD",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "0d86a803-0eaf-4bfb-a898-3c5699d2c052",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "HTML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Portal \"Hamburg ist grün\"",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250627",
+                "url": "http://www.hamburg.de/fhh-permalink/1065260",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/0d43a3d6-be87-4da7-a4e6-b8808e105170",
+                "last_modified": null,
+                "position": 5,
+                "access_url": "http://www.hamburg.de/fhh-permalink/1065260",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "7efe04e4-9350-42aa-9db9-13a32dd28295",
+                "size": 1591,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0d8fc2d2da8c8fd5c792ceb4d3713f4c8ab2f88eeec70e52bef8b315ebac4350",
+                "description": "",
+                "format": "HTML",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Geoportal Hamburg-Hamburgs Grün im Überblick",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250638",
+                "url": "https://geoportal-hamburg.de/hhgruen",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/2a53b402-81e9-4b84-91e1-5e1773c4e42e",
+                "last_modified": null,
+                "position": 6,
+                "access_url": "https://geoportal-hamburg.de/hhgruen",
+                "resource_type": null
+            },
+            {
+                "cache_last_updated": null,
+                "issued": "2020-04-02T00:00:00",
+                "modified": "2020-08-06T08:23:32.764126",
+                "licenseAttributionByText": "Freie und Hansestadt Hamburg, Behörde für Umwelt und Energie, 2015",
+                "id": "f21b9549-ace6-49ee-bbe0-ca61372bab3c",
+                "size": -1,
+                "conforms_to": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]",
+                "state": "active",
+                "package_id": "4c1ac238-bc7d-4531-8e07-6987c40d527d",
+                "hash": "0",
+                "description": "",
+                "format": "WMS",
+                "mimetype_inner": null,
+                "url_type": null,
+                "revision_id": "e347b8a6-391f-4783-87b8-166eb5f6fd7b",
+                "name": "Dienst \"WMS 100 Jahre Stadtgruen\" (GetCapabilities)",
+                "mimetype": null,
+                "cache_url": null,
+                "license": "http://dcat-ap.de/def/licenses/dl-by-de/2.0",
+                "language": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]",
+                "created": "2020-08-20T10:51:02.250645",
+                "url": "https://geodienste.hamburg.de/HH_WMS_Stadtgruen?REQUEST=GetCapabilities&SERVICE=WMS",
+                "uri": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2/resource/742e5caf-b420-473d-8140-a583834dcda7",
+                "last_modified": null,
+                "position": 7,
+                "access_url": "https://geodienste.hamburg.de/HH_WMS_Stadtgruen?REQUEST=GetCapabilities&SERVICE=WMS",
+                "resource_type": null
+            }
+        ],
+        "num_resources": 8,
+        "tags": [
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "baum",
+                "id": "956aa71f-a148-4fa0-9ac0-e335cbd49ba8",
+                "name": "baum"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "behörde",
+                "id": "e15183d8-d75f-43d8-afa2-463c010c404b",
+                "name": "behörde"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "geodaten",
+                "id": "341af805-080f-4467-ac64-838342fd8072",
+                "name": "geodaten"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "grün",
+                "id": "01e8f656-22c9-4f02-881d-042eb3ff74a8",
+                "name": "grün"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "grünanlage",
+                "id": "d53dc296-07e2-475a-8d7c-63fc65a299fb",
+                "name": "grünanlage"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "historischer-park",
+                "id": "e25535d7-98ac-4ba8-91b6-1cec26e3ad58",
+                "name": "historischer-park"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "kleingarten",
+                "id": "1c9d05cc-932b-4136-9b91-d1779e0ea17f",
+                "name": "kleingarten"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "landschaft",
+                "id": "df8d6335-4a16-407d-be4d-471b8e83909e",
+                "name": "landschaft"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "parkanlage",
+                "id": "1808304a-d9ef-4b83-879b-0b9f39dcefe3",
+                "name": "parkanlage"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "parkanlagen",
+                "id": "1fe7c5eb-31ce-4c9c-9edd-34183b3e03c6",
+                "name": "parkanlagen"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "plätze",
+                "id": "00709c4c-a0d9-4426-82fe-b02167fcfc0e",
+                "name": "plätze"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "raumentwicklung",
+                "id": "b20a8275-415b-409c-9abe-0047462e42f4",
+                "name": "raumentwicklung"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "spielplatz",
+                "id": "b4dd81ea-0b5f-4e85-a767-22250454e0db",
+                "name": "spielplatz"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "spielplätze",
+                "id": "cde85e9a-48c8-4c04-bf0d-afb10dee8bd1",
+                "name": "spielplätze"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "stadtentwicklung",
+                "id": "8a33cb43-8843-4832-bd12-f3b45b4eac60",
+                "name": "stadtentwicklung"
+            },
+            {
+                "vocabulary_id": null,
+                "state": "active",
+                "display_name": "öffentliche-verwaltung",
+                "id": "5642f5c4-6619-4bba-aa86-10c0b1dc5f29",
+                "name": "öffentliche-verwaltung"
+            }
+        ],
+        "groups": [
+            {
+                "display_name": "Bildung, Kultur und Sport",
+                "description": "",
+                "image_display_url": "",
+                "title": "Bildung, Kultur und Sport",
+                "id": "educ",
+                "name": "educ"
+            },
+            {
+                "display_name": "Energie",
+                "description": "",
+                "image_display_url": "",
+                "title": "Energie",
+                "id": "ener",
+                "name": "ener"
+            },
+            {
+                "display_name": "Umwelt",
+                "description": "",
+                "image_display_url": "",
+                "title": "Umwelt",
+                "id": "envi",
+                "name": "envi"
+            }
+        ],
+        "license_id": "",
+        "relationships_as_subject": [],
+        "organization": {
+            "description": "Transparenzportal Hamburg",
+            "created": "2016-01-11T09:32:27.505139",
+            "title": "Transparenzportal Hamburg",
+            "name": "transparenzportal-hamburg",
+            "is_organization": true,
+            "state": "active",
+            "image_url": "",
+            "revision_id": "8492ca75-2a77-457d-b1c4-adda8ce73628",
+            "type": "organization",
+            "id": "1b414196-261e-4fbf-8b4b-30756dcd8ea1",
+            "approval_status": "approved"
+        },
+        "name": "100-jahre-stadtgrun-stadtpark-und-volkspark20159",
+        "isopen": false,
+        "url": "http://www.hamburg.de/fhh-permalink/4145368",
+        "notes": "Anlässlich des 100. Geburtstags vom Hamburger Stadtpark und Altonaer Volkspark werden für beide Parks Informationen zu Service-Einrichtungen und Sehenswürdigkeiten im Park dargeboten. Dazu zählen zum einen die Standorte von Restaurants, Minigolfanlagen, StadtRAD-Stationen, Grillwiese, öffentliche Toilette etc., zum anderen Standorte von Sehenswürdigkeiten und Kunstskulpturen.\n\nHinweis: Im Datensatz verlinkte Fotos unterliegen nicht der Veröffentlichungspflicht nach Hamburgischem Transparenzgesetz und sind nicht Teil der freien Lizenz.\n\nWeitere Informationen: www.hamburg.de/parkanlagen",
+        "owner_org": "1b414196-261e-4fbf-8b4b-30756dcd8ea1",
+        "extras": [
+            {
+                "key": "author_contacttype",
+                "value": "Organization"
+            },
+            {
+                "key": "conforms_to",
+                "value": "[\"http://dcat-ap.de/def/dcatde/1.0/\"]"
+            },
+            {
+                "key": "contact_name",
+                "value": "Iwohn, Axel, Herr"
+            },
+            {
+                "key": "contributorID",
+                "value": "[\"http://dcat-ap.de/def/contributors/transparenzportalHamburg\"]"
+            },
+            {
+                "key": "documentation",
+                "value": "[\"https://square1.informatik.uni-hamburg.de/dataset/100-jahre-stadtgrun-stadtpark-und-volkspark13\"]"
+            },
+            {
+                "key": "frequency",
+                "value": "http://publications.europa.eu/resource/authority/frequency/NEVER"
+            },
+            {
+                "key": "geocodingText",
+                "value": "[\"Freie und Hansestadt Hamburg\"]"
+            },
+            {
+                "key": "guid",
+                "value": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2"
+            },
+            {
+                "key": "identifier",
+                "value": "4E67DF32-AAC0-4410-A215-4110F8D50BBD"
+            },
+            {
+                "key": "is_version_of",
+                "value": "[\"https://square1.informatik.uni-hamburg.de/dataset/100-jahre-stadtgrun-stadtpark-und-volkspark12\"]"
+            },
+            {
+                "key": "issued",
+                "value": "2020-04-02T00:00:00"
+            },
+            {
+                "key": "language",
+                "value": "[\"http://publications.europa.eu/resource/authority/language/DEU\"]"
+            },
+            {
+                "key": "legalbasisText",
+                "value": "[\"Hamburgisches Transparenzgesetz (HmbTG). URL: http://transparenz.hamburg.de/das-hmbtg/ Gesetzestext: http://transparenz.hamburg.de/contentblob/4318588/c8600b2b27ea31a5de6a92dacc138894/data/gesetzestext-hmbtg.pdf\"]"
+            },
+            {
+                "key": "maintainer_contacttype",
+                "value": "Organization"
+            },
+            {
+                "key": "metadata_harvested_portal",
+                "value": "http://suche.transparenz.hamburg.de/"
+            },
+            {
+                "key": "metadata_original_html",
+                "value": "http://www.hamburg.de/fhh-permalink/4145368"
+            },
+            {
+                "key": "modified",
+                "value": "2020-08-06T08:23:32.764126"
+            },
+            {
+                "key": "originator_contacttype",
+                "value": "Organization"
+            },
+            {
+                "key": "originator_name",
+                "value": "Behörde für Umwelt und Energie (BUE), Präsidialabteilung (BUE), P 3 - Öffentlichkeitsarbeit und Kommunikation, P 32 - Presse und Online-Kommunikation"
+            },
+            {
+                "key": "politicalGeocodingLevelURI",
+                "value": "http://dcat-ap.de/def/politicalGeocoding/level/state"
+            },
+            {
+                "key": "politicalGeocodingURI",
+                "value": "[\"http://dcat-ap.de/def/politicalGeocoding/regionalKey/020000000000\"]"
+            },
+            {
+                "key": "provenance",
+                "value": "Der Datensatz wurde geharvestet. Ursprung: Behördliche Aufgaben mit Computerunterstützung"
+            },
+            {
+                "key": "publisher_name",
+                "value": "Behörde für Umwelt und Energie (BUE), Präsidialabteilung (BUE), P 3 - Öffentlichkeitsarbeit und Kommunikation, P 32 - Presse und Online-Kommunikation"
+            },
+            {
+                "key": "source",
+                "value": "[\"https://transparenz.hamburg.de\"]"
+            },
+            {
+                "key": "spatial",
+                "value": "{\"type\": \"multiPolygon\", \"coordinates\": [[[[10.326304, 53.394985], [10.326304, 53.964153], [8.420551, 53.964153], [8.420551, 53.394985], [10.326304, 53.394985]]], [[[10.326304, 53.394985], [10.326304, 53.964153], [8.420551, 53.964153], [8.420551, 53.394985], [10.326304, 53.394985]]]]}"
+            },
+            {
+                "key": "theme",
+                "value": "[\"http://publications.europa.eu/resource/authority/data-theme/EDUC\", \"http://publications.europa.eu/resource/authority/data-theme/ENVI\", \"http://publications.europa.eu/resource/authority/data-theme/ENER\"]"
+            },
+            {
+                "key": "uri",
+                "value": "https://square1.informatik.uni-hamburg.de/dataset/ecb299a6-0655-4ecb-80cc-c08db992a5f2"
+            }
+        ],
+        "title": "100 Jahre Stadtgrün - Stadtpark und Volkspark",
+        "revision_id": "67a87c96-570a-420e-a9fa-0793e94c7738"
+    }
+}
