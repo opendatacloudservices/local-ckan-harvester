@@ -1,6 +1,17 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resetTables = exports.packageInsertTags = exports.packageInsertGroups = exports.packageInsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = void 0;
+exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = void 0;
+const definition_tables = [
+    'extras',
+    'groups',
+    'organizations',
+    'packages',
+    'ref_groups_packages',
+    'ref_tags_packages',
+    'ref_resources_packages',
+    'resources',
+    'tags',
+];
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
         .query(`SELECT id, revision_id FROM ${prefix}_packages WHERE id = $1`, [
@@ -31,7 +42,15 @@ exports.processPackage = (client, prefix, ckanPackage) => {
                 // if something changes, we purge the old data and add the new
                 await exports.removePackage(client, prefix, ckanPackage);
             }
-            return exports.insertPackage(client, prefix, ckanPackage).then(() => Promise.resolve());
+            const inserts = [
+                exports.insertPackage,
+                exports.packageUpsertOrganization,
+                exports.packageInsertExtras,
+                exports.packageUpsertResources,
+                exports.packageUpsertGroups,
+                exports.packageUpsertTags,
+            ];
+            return Promise.all(inserts.map(insert => insert(client, prefix, ckanPackage))).then(() => Promise.resolve());
         }
     });
 };
@@ -55,7 +74,8 @@ exports.removePackage = (client, prefix, ckanPackage) => {
 };
 exports.insertPackage = (client, prefix, ckanPackage) => {
     const r = ckanPackage.result;
-    return client.query(`INSERT INTO ${prefix}_packages (
+    return client
+        .query(`INSERT INTO ${prefix}_packages (
     id, name, title, revision_id, owner_org, notes, url, isopen, 
     license_id, type, creator_user_id, version, state, author_email, 
     author, metadata_modified, metadata_created, maintainer_email, 
@@ -84,11 +104,15 @@ exports.insertPackage = (client, prefix, ckanPackage) => {
         r.maintainer,
         r.license_title,
         r.organization.id,
-    ]);
+    ])
+        .then(() => {
+        return Promise.resolve();
+    });
 };
 exports.packageUpsertOrganization = (client, prefix, ckanPackage) => {
     const o = ckanPackage.result.organization;
-    return client.query(`INSERT INTO ${prefix}_organizations (
+    return client
+        .query(`INSERT INTO ${prefix}_organizations (
       id, name, title, description, type, state, image_url, 
       is_organization, created, revision_id) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
@@ -105,7 +129,10 @@ exports.packageUpsertOrganization = (client, prefix, ckanPackage) => {
         o.is_organization,
         o.created,
         o.revision_id,
-    ]);
+    ])
+        .then(() => {
+        return Promise.resolve();
+    });
 };
 exports.packageInsertExtras = (client, prefix, ckanPackage) => {
     if (ckanPackage.result.extras && ckanPackage.result.extras.length > 0) {
@@ -129,7 +156,7 @@ exports.packageInsertExtras = (client, prefix, ckanPackage) => {
         return Promise.resolve();
     }
 };
-exports.packageInsertResources = async (client, prefix, ckanPackage) => {
+exports.packageUpsertResources = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.resources && ckanPackage.result.resources.length > 0) {
         const columns = [
             'license_attribution_by_text',
@@ -181,7 +208,7 @@ exports.packageInsertResources = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
-exports.packageInsertGroups = async (client, prefix, ckanPackage) => {
+exports.packageUpsertGroups = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.groups && ckanPackage.result.groups.length > 0) {
         for (let g = 0; g < ckanPackage.result.groups.length; g += 1) {
             await client.query(`INSERT INTO ${prefix}_groups (id, name, display_name, title, description, image_display_url)
@@ -199,7 +226,7 @@ exports.packageInsertGroups = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
-exports.packageInsertTags = async (client, prefix, ckanPackage) => {
+exports.packageUpsertTags = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.tags && ckanPackage.result.tags.length > 0) {
         for (let t = 0; t < ckanPackage.result.tags.length; t += 1) {
             await client.query(`INSERT INTO ${prefix}_tags (id, name, display_name, state, vocabulary_id)
@@ -216,21 +243,201 @@ exports.packageInsertTags = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
+exports.tablesExist = (client, prefix, tables) => {
+    return client
+        .query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+        .then(result => {
+        const found_tables = result.rows.map(row => row.table_name);
+        const missing_tables = [];
+        tables.forEach(table => {
+            const table_name = `${prefix}_${table}`;
+            if (!found_tables.includes(table_name)) {
+                missing_tables.push(table_name);
+            }
+        });
+        if (missing_tables.length > 0) {
+            return Promise.resolve(false);
+        }
+        else {
+            return Promise.resolve(true);
+        }
+    });
+};
+exports.initTables = (client, prefix) => {
+    return exports.tablesExist(client, prefix, definition_tables)
+        .then(exists => {
+        if (exists) {
+            throw Error('Looks like the tables you are trying to create, do already exist.');
+        }
+        return Promise.resolve();
+    })
+        .then(() => client.query(`CREATE TABLE ${prefix}_extras (
+        id SERIAL,
+        package_id character varying(36) NOT NULL,
+        key text,
+        value text,
+        CONSTRAINT ${prefix}_extras_pkey PRIMARY KEY (id),
+        CONSTRAINT ${prefix}_extras_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_groups (
+        id character varying(4) NOT NULL,
+        name text,
+        display_name text,
+        title text,
+        description text,
+        image_display_url text,
+        CONSTRAINT ${prefix}_groups_pkey PRIMARY KEY (id)
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_organizations (
+        id character varying(36) NOT NULL,
+        name text,
+        title text,
+        description text,
+        type text,
+        state text,
+        image_url text,
+        is_organization boolean,
+        created timestamp without time zone,
+        revision_id character varying(36),
+        CONSTRAINT ${prefix}_organizations_pkey PRIMARY KEY (id)
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_packages (
+        id character varying(36) NOT NULL,
+        name text,
+        title text,
+        revision_id character varying(36),
+        owner_org character varying(36),
+        notes text,
+        url text,
+        isopen boolean,
+        license_id text,
+        type text,
+        creator_user_id character varying(36),
+        version text,
+        state text,
+        author_email text,
+        author text,
+        metadata_modified timestamp without time zone,
+        metadata_created timestamp without time zone,
+        maintainer_email text,
+        private boolean,
+        maintainer text,
+        license_title text,
+        organization_id character varying(36),
+        CONSTRAINT ${prefix}_packages_pkey PRIMARY KEY (id),
+        CONSTRAINT ${prefix}_packages_organization_id_fkey FOREIGN KEY (organization_id)
+          REFERENCES ${prefix}_organizations (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE SET NULL
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_ref_groups_packages (
+        package_id character varying(36) NOT NULL,
+        group_id character varying(36) NOT NULL,
+        CONSTRAINT ${prefix}_ref_groups_packages_pkey PRIMARY KEY (package_id, group_id),
+        CONSTRAINT ${prefix}_ref_groups_packages_group_id_fkey FOREIGN KEY (group_id)
+            REFERENCES ${prefix}_groups (id) MATCH SIMPLE
+            ON UPDATE CASCADE
+            ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_groups_packages_package_id_fkey FOREIGN KEY (package_id)
+            REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+            ON UPDATE CASCADE
+            ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
+        package_id character varying(36) NOT NULL PRIMARY KEY,
+        resource_id character varying(36) NOT NULL PRIMARY KEY,
+        CONSTRAINT ${prefix}_ref_resources_packages_pkey PRIMARY KEY (package_id, resource_id),
+        CONSTRAINT ${prefix}_ref_resources_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_resources_packages_resource_id_fkey FOREIGN KEY (resource_id)
+          REFERENCES p${prefix}_resources (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
+        package_id character varying(36) NOT NULL PRIMARY KEY,
+        tag_id character varying(36) NOT NULL PRIMARY KEY,
+        CONSTRAINT ${prefix}_ref_tags_packages_pkey PRIMARY KEY (package_id, tag_id),
+        CONSTRAINT ${prefix}_ref_tags_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_tags_packages_tag_id_fkey FOREIGN KEY (tag_id)
+          REFERENCES ${prefix}_tags (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_resources (
+        id character varying(36) NOT NULL,
+        name text,
+        format text,
+        cache_last_updated timestamp without time zone,
+        issued timestamp without time zone,
+        modified timestamp without time zone,
+        last_modified timestamp without time zone,
+        created timestamp without time zone,
+        license_attribution_by_text text,
+        size double precision,
+        conforms_to text,
+        state text,
+        hash text,
+        description text,
+        mimetype_inner text,
+        url_type text,
+        revision_id character varying(36),
+        mimetype text,
+        cache_url text,
+        license text,
+        language text,
+        url text,
+        uri text,
+        "position" integer,
+        access_url text,
+        resource_type text,
+        CONSTRAINT ${prefix}_resource_pkey PRIMARY KEY (id)
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_tags (
+        id character varying(36) NOT NULL,
+        name text,
+        display_name text,
+        state text,
+        vocabulary_id text,
+        CONSTRAINT ${prefix}_tags_pkey PRIMARY KEY (id)
+    );`))
+        .then(() => {
+        return Promise.resolve();
+    });
+};
 exports.resetTables = (client, prefix) => {
-    const tables = [
-        'extras',
-        'groups',
-        'organizations',
-        'packages',
-        'ref_groups_packages',
-        'ref_tags_packages',
-        'ref_resources_packages',
-        'resources',
-        'tags',
-    ];
-    return Promise.all(tables.map((name) => {
-        return client.query(`TRUNCATE ${prefix}_${name}`);
-    })).then(() => {
+    return exports.tablesExist(client, prefix, definition_tables)
+        .then(exists => {
+        if (!exists) {
+            throw Error('Looks like the tables you are trying to reset, do not all exist.');
+        }
+        return Promise.all(definition_tables.map((name) => {
+            return client.query(`TRUNCATE ${prefix}_${name}`);
+        }));
+    })
+        .then(() => {
+        return Promise.resolve();
+    });
+};
+exports.dropTables = (client, prefix) => {
+    return exports.tablesExist(client, prefix, definition_tables)
+        .then(exists => {
+        if (!exists) {
+            throw Error('Looks like the tables you are trying to drop, do not all exist.');
+        }
+        return Promise.all(definition_tables.map((name) => {
+            return client.query(`DROP TABLE ${prefix}_${name}`);
+        }));
+    })
+        .then(() => {
         return Promise.resolve();
     });
 };

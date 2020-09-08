@@ -15,15 +15,16 @@ dotenv.config();
 const client = new Client();
 client.connect();
 
-// get a list of all package ids from govdata
-// TODO: move url to param
+// import packages from a ckan instance
+const domain = process.argv[2];
+const prefix = process.argv[3];
 
-packageList('ckan.govdata.de')
+packageList(domain)
   .then(async (list: CkanPackageList) => {
     for (let i = 0; i < list.result.length; i += 1) {
-      await packageShow('ckan.govdata.de', list.result[i]).then(
+      await packageShow(domain, list.result[i]).then(
         async (ckanPackage: CkanPackage) => {
-          return processPackage(client, 'govdata_', ckanPackage);
+          return processPackage(client, prefix, ckanPackage);
         }
       );
     }

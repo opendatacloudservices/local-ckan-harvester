@@ -9,13 +9,14 @@ dotenv.config();
 // connect to postgres (via env vars params)
 const client = new pg_1.Client();
 client.connect();
-// get a list of all package ids from govdata
-// TODO: move url to param
-index_1.packageList('ckan.govdata.de')
+// import packages from a ckan instance
+const domain = process.argv[2];
+const prefix = process.argv[3];
+index_1.packageList(domain)
     .then(async (list) => {
     for (let i = 0; i < list.result.length; i += 1) {
-        await index_1.packageShow('ckan.govdata.de', list.result[i]).then(async (ckanPackage) => {
-            return index_2.processPackage(client, 'govdata_', ckanPackage);
+        await index_1.packageShow(domain, list.result[i]).then(async (ckanPackage) => {
+            return index_2.processPackage(client, prefix, ckanPackage);
         });
     }
 })
