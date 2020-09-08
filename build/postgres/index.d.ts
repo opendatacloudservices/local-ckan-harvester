@@ -9,3 +9,4 @@ export declare const packageInsertExtras: (client: Client, prefix: string, ckanP
 export declare const packageInsertResources: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
 export declare const packageInsertGroups: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
 export declare const packageInsertTags: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const resetTables: (client: Client, prefix: string) => Promise<void>;

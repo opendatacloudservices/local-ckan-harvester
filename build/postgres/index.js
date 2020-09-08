@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.packageInsertTags = exports.packageInsertGroups = exports.packageInsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = void 0;
+exports.resetTables = exports.packageInsertTags = exports.packageInsertGroups = exports.packageInsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = void 0;
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
         .query(`SELECT id, revision_id FROM ${prefix}_packages WHERE id = $1`, [
@@ -215,5 +215,23 @@ exports.packageInsertTags = async (client, prefix, ckanPackage) => {
         }
     }
     return Promise.resolve();
+};
+exports.resetTables = (client, prefix) => {
+    const tables = [
+        'extras',
+        'groups',
+        'organizations',
+        'packages',
+        'ref_groups_packages',
+        'ref_tags_packages',
+        'ref_resources_packages',
+        'resources',
+        'tags',
+    ];
+    return Promise.all(tables.map((name) => {
+        return client.query(`TRUNCATE ${prefix}_${name}`);
+    })).then(() => {
+        return Promise.resolve();
+    });
 };
 //# sourceMappingURL=index.js.map

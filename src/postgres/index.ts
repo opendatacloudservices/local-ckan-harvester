@@ -38,9 +38,20 @@ export const processPackage = (
           // if something changes, we purge the old data and add the new
           await removePackage(client, prefix, ckanPackage);
         }
-        return insertPackage(client, prefix, ckanPackage).then(() =>
-          Promise.resolve()
-        );
+
+        const inserts = [
+          insertPackage,
+          packageUpsertOrganization,
+          packageInsertExtras,
+          packageUpsertResources,
+          packageUpsertGroups,
+          packageUpsertTags,
+        ];
+
+        return Promise.all(inserts.map((insert) => insert(client, prefix, ckanPackage)))
+          .then(() =>
+            Promise.resolve()
+          );
       }
     }
   );
@@ -95,7 +106,7 @@ export const insertPackage = (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
-): Promise<QueryResult> => {
+): Promise<void> => {
   const r = ckanPackage.result;
   return client.query(
     `INSERT INTO ${prefix}_packages (
@@ -129,14 +140,17 @@ export const insertPackage = (
       r.license_title,
       r.organization.id,
     ]
-  );
+  )
+  .then(() => {
+    return Promise.resolve();
+  });
 };
 
 export const packageUpsertOrganization = (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
-): Promise<QueryResult> => {
+): Promise<void> => {
   const o = ckanPackage.result.organization;
   return client.query(
     `INSERT INTO ${prefix}_organizations (
@@ -158,7 +172,10 @@ export const packageUpsertOrganization = (
       o.created,
       o.revision_id,
     ]
-  );
+  )
+  .then(() => {
+    return Promise.resolve();
+  });
 };
 
 export const packageInsertExtras = (
@@ -191,7 +208,7 @@ export const packageInsertExtras = (
   }
 };
 
-export const packageInsertResources = async (
+export const packageUpsertResources = async (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
@@ -257,7 +274,7 @@ export const packageInsertResources = async (
   return Promise.resolve();
 };
 
-export const packageInsertGroups = async (
+export const packageUpsertGroups = async (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
@@ -287,7 +304,7 @@ export const packageInsertGroups = async (
   return Promise.resolve();
 };
 
-export const packageInsertTags = async (
+export const packageUpsertTags = async (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
@@ -314,4 +331,26 @@ export const packageInsertTags = async (
     }
   }
   return Promise.resolve();
+};
+
+export const resetTables = (client: Client, prefix: string): Promise<void> => {
+  const tables = [
+    'extras',
+    'groups',
+    'organizations',
+    'packages',
+    'ref_groups_packages',
+    'ref_tags_packages',
+    'ref_resources_packages',
+    'resources',
+    'tags',
+  ];
+
+  return Promise.all(
+    tables.map((name: string) => {
+      return client.query(`TRUNCATE ${prefix}_${name}`);
+    })
+  ).then(() => {
+    return Promise.resolve();
+  });
 };

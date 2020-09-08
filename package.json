@@ -2,13 +2,13 @@
   "name": "local-govdata-harvester",
   "version": "1.0.0",
   "description": "Harvesting data sets from govdata",
-  "main": "build/src/index.js",
+  "main": "build/index.js",
   "scripts": {
     "test": "jest test/test.js",
-    "check": "gts check",
-    "clean": "gts clean",
+    "check": "gts check src",
+    "clean": "gts clean src",
     "compile": "tsc",
-    "fix": "gts fix",
+    "fix": "gts fix src",
     "exec": "tsc && node build/src/index"
   },
   "repository": {
