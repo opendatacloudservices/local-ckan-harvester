@@ -6,6 +6,8 @@ export interface CkanPackageList {
   result: string[];
 }
 
+// TODO: replace prefix & table through master call > (number || string) 
+
 export const packageList = (domain: string): Promise<CkanPackageList> => {
   return fetch(`https://${domain}/api/3/action/package_list`).then(res =>
     res.json()

@@ -1,5 +1,6 @@
 import {Client, QueryResult} from 'pg';
 import {CkanPackage, CkanResource} from '../ckan/index';
+import * as moment from 'moment';
 
 const definition_tables = [
   'extras',
@@ -12,6 +13,9 @@ const definition_tables = [
   'resources',
   'tags',
 ];
+
+const definition_master_table = 'ckan_master';
+const definition_logs_table = 'ckan_logs';
 
 export const packageGetAction = (
   client: Client,
@@ -346,6 +350,78 @@ export const packageUpsertTags = async (
   return Promise.resolve();
 };
 
+export const masterTableExist = (client: Client): Promise<boolean> => {
+  return client
+    .query(
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND name = '${definition_master_table}'`
+    )
+    .then(result => {
+      if (result.rows.length > 0) {
+        return Promise.resolve(true);
+      } else {
+        return Promise.resolve(false);
+      }
+    });
+};
+
+export const initMasterTable = (client: Client): Promise<void> => {
+  return client
+    .query(
+      `CREATE TABLE ${definition_master_table} (
+    id SERIAL,
+    prefix text NOT NULL,
+    domain text NOT NULL,
+    date_added timestamp without time zone,
+    date_updated timestamp without time zone,
+    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
+  );`
+    )
+    .then(() =>
+      client.query(`CREATE TABLE ${definition_master_table} (
+    id SERIAL,
+    prefix text NOT NULL,
+    domain text NOT NULL,
+    date_added timestamp without time zone,
+    date_updated timestamp without time zone,
+    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
+  );`)
+    )
+    .then(() => Promise.resolve());
+};
+
+export const dropMasterTable = (client: Client): Promise<void> => {
+  return client
+    .query(`DROP TABLE ${definition_master_table};`)
+    .then(() => client.query(`DROP TABLE ${definition_logs_table};`))
+    .then(() => Promise.resolve());
+};
+
+export const getInstance = (
+  client: Client,
+  identifier: string | number
+): Promise<{id: number; prefix: string; domain: string}> => {
+  return client
+    .query(
+      `SELECT id, prefix, domain FROM ${definition_master_table} WHERE ${
+        typeof identifier === 'number' ? 'id' : 'prefix'
+      } = $1`,
+      [identifier]
+    )
+    .then(result => {
+      if (result.rows.length === 1) {
+        return Promise.resolve({
+          id: result.rows[0].id,
+          prefix: result.rows[0].prefix,
+          domain: result.rows[0].domain,
+        });
+      } else {
+        return Promise.reject(Error('Instance not found.'));
+      }
+    });
+};
+
+// TODO: add summary logs after runs
+
 export const tablesExist = (
   client: Client,
   prefix: string,
@@ -374,16 +450,21 @@ export const tablesExist = (
     });
 };
 
-export const initTables = (client: Client, prefix: string): Promise<void> => {
+export const initTables = (client: Client, prefix: string, domain: string): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
     .then(exists => {
       if (exists) {
-        throw Error(
+        Promise.reject(Error(
           'Looks like the tables you are trying to create, do already exist.'
-        );
+        ));
       }
       return Promise.resolve();
     })
+    .then(() => client.query(`INSERT INTO ${definition_master_table} 
+        (prefix, domain, date_added)
+        VALUES
+        ($1, $2, $3);`,
+      [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss')]))
     .then(() =>
       client.query(`CREATE TABLE ${prefix}_extras (
         id SERIAL,
@@ -447,6 +528,8 @@ export const initTables = (client: Client, prefix: string): Promise<void> => {
         maintainer text,
         license_title text,
         organization_id character varying(36),
+        ckan_id text,
+        ckan_status text,
         CONSTRAINT ${prefix}_packages_pkey PRIMARY KEY (id),
         CONSTRAINT ${prefix}_packages_organization_id_fkey FOREIGN KEY (organization_id)
           REFERENCES ${prefix}_organizations (id) MATCH SIMPLE
