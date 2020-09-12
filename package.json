@@ -5,11 +5,11 @@
   "main": "build/index.js",
   "scripts": {
     "test": "jest test/test.js",
-    "check": "gts check src",
-    "clean": "gts clean src",
+    "check": "gts check src/**/*.ts src/*.ts",
+    "clean": "gts clean src/**/*.ts src/*.ts",
     "compile": "tsc",
-    "fix": "gts fix src",
-    "exec": "tsc && node build/src/index"
+    "fix": "gts fix src/**/*.ts src/*.ts",
+    "exec": "tsc && node build/index"
   },
   "repository": {
     "type": "git",
@@ -22,10 +22,11 @@
   },
   "homepage": "https://github.com/opendatacloudservices/local-govdata-harvester#readme",
   "devDependencies": {
+    "@types/express": "^4.17.8",
     "@types/node": "^13.11.1",
     "@types/node-fetch": "^2.5.7",
     "@types/pg": "^7.14.4",
-    "eslint": "^7.7.0",
+    "eslint": "^6.0.0",
     "gts": "^2.0.2",
     "jest": "^26.4.2",
     "ts-node": "^9.0.0",
@@ -33,7 +34,8 @@
   },
   "dependencies": {
     "dotenv": "^8.2.0",
-    "node-fetch": "^2.6.0",
+    "local-microservice": "file:../local-microservice",
+    "node-fetch": "^2.6.1",
     "pg": "^8.3.2"
   }
 }
