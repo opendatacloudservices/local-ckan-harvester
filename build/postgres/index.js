@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = void 0;
+exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
 const moment = require("moment");
-const definition_tables = [
+exports.definition_tables = [
     'extras',
     'groups',
     'organizations',
@@ -13,8 +13,8 @@ const definition_tables = [
     'resources',
     'tags',
 ];
-const definition_master_table = 'ckan_master';
-const definition_logs_table = 'ckan_logs';
+exports.definition_master_table = 'ckan_master';
+exports.definition_logs_table = 'ckan_logs';
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
         .query(`SELECT id, revision_id FROM ${prefix}_packages WHERE id = $1`, [
@@ -309,7 +309,7 @@ exports.packageUpsertTags = async (client, prefix, ckanPackage) => {
 };
 exports.masterTableExist = (client) => {
     return client
-        .query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND name = '${definition_master_table}'`)
+        .query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${exports.definition_master_table}'`)
         .then(result => {
         if (result.rows.length > 0) {
             return Promise.resolve(true);
@@ -321,33 +321,35 @@ exports.masterTableExist = (client) => {
 };
 exports.initMasterTable = (client) => {
     return client
-        .query(`CREATE TABLE ${definition_master_table} (
-    id SERIAL,
-    prefix text NOT NULL,
-    domain text NOT NULL,
-    date_added timestamp without time zone,
-    date_updated timestamp without time zone,
-    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
-  );`)
-        .then(() => client.query(`CREATE TABLE ${definition_master_table} (
-    id SERIAL,
-    prefix text NOT NULL,
-    domain text NOT NULL,
-    date_added timestamp without time zone,
-    date_updated timestamp without time zone,
-    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
-  );`))
+        .query(`CREATE TABLE ${exports.definition_master_table} (
+      id SERIAL,
+      prefix text NOT NULL,
+      domain text NOT NULL,
+      filter text,
+      date_added timestamp without time zone,
+      date_updated timestamp without time zone,
+      CONSTRAINT ${exports.definition_master_table}_pkey PRIMARY KEY (id)
+    );`)
+        .then(() => client.query(`CREATE TABLE ${exports.definition_logs_table} (
+      id SERIAL,
+      code text,
+      label text,
+      message text,
+      attachment text,
+      date timestamp without time zone,
+      CONSTRAINT ${exports.definition_logs_table}_pkey PRIMARY KEY (id)
+    );`))
         .then(() => Promise.resolve());
 };
 exports.dropMasterTable = (client) => {
     return client
-        .query(`DROP TABLE ${definition_master_table};`)
-        .then(() => client.query(`DROP TABLE ${definition_logs_table};`))
+        .query(`DROP TABLE ${exports.definition_master_table};`)
+        .then(() => client.query(`DROP TABLE ${exports.definition_logs_table};`))
         .then(() => Promise.resolve());
 };
 exports.getInstance = (client, identifier) => {
     return client
-        .query(`SELECT id, prefix, domain FROM ${definition_master_table} WHERE ${typeof identifier === 'number' ? 'id' : 'prefix'} = $1`, [identifier])
+        .query(`SELECT id, prefix, domain FROM ${exports.definition_master_table} WHERE ${typeof identifier === 'number' ? 'id' : 'prefix'} = $1`, [identifier])
         .then(result => {
         if (result.rows.length === 1) {
             return Promise.resolve({
@@ -383,28 +385,17 @@ exports.tablesExist = (client, prefix, tables) => {
     });
 };
 exports.initTables = (client, prefix, domain, filter) => {
-    return exports.tablesExist(client, prefix, definition_tables)
+    return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (exists) {
             Promise.reject(Error('Looks like the tables you are trying to create, do already exist.'));
         }
         return Promise.resolve();
     })
-        .then(() => client.query(`INSERT INTO ${definition_master_table} 
+        .then(() => client.query(`INSERT INTO ${exports.definition_master_table} 
         (prefix, domain, date_added, filter)
         VALUES
         ($1, $2, $3, $4);`, [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss'), filter]))
-        .then(() => client.query(`CREATE TABLE ${prefix}_extras (
-        id SERIAL,
-        package_id character varying(36) NOT NULL,
-        key text,
-        value text,
-        CONSTRAINT ${prefix}_extras_pkey PRIMARY KEY (id),
-        CONSTRAINT ${prefix}_extras_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`))
         .then(() => client.query(`CREATE TABLE ${prefix}_groups (
         id character varying(4) NOT NULL,
         name text,
@@ -458,6 +449,17 @@ exports.initTables = (client, prefix, domain, filter) => {
           ON UPDATE CASCADE
           ON DELETE SET NULL
     );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_extras (
+        id SERIAL,
+        package_id character varying(36) NOT NULL,
+        key text,
+        value text,
+        CONSTRAINT ${prefix}_extras_pkey PRIMARY KEY (id),
+        CONSTRAINT ${prefix}_extras_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+      );`))
         .then(() => client.query(`CREATE TABLE ${prefix}_ref_groups_packages (
         package_id character varying(36) NOT NULL,
         group_id character varying(36) NOT NULL,
@@ -472,37 +474,7 @@ exports.initTables = (client, prefix, domain, filter) => {
             ON DELETE CASCADE
     );`))
         .then(() => client.query(`CREATE INDEX ${prefix}_ref_groups_packages__package_id ON ${prefix}_ref_groups_packages USING btree (package_id);`))
-        .then(() => client.query(`CREATE INDEX ${prefix}_ref_groups_packages__group_id ON ${prefix}_ref_groups_packages USING btree (group_id_id);`))
-        .then(() => client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
-        package_id character varying(36) NOT NULL PRIMARY KEY,
-        resource_id character varying(36) NOT NULL PRIMARY KEY,
-        CONSTRAINT ${prefix}_ref_resources_packages_pkey PRIMARY KEY (package_id, resource_id),
-        CONSTRAINT ${prefix}_ref_resources_packages_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE,
-        CONSTRAINT ${prefix}_ref_resources_packages_resource_id_fkey FOREIGN KEY (resource_id)
-          REFERENCES p${prefix}_resources (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`))
-        .then(() => client.query(`CREATE INDEX ${prefix}_ref_resources_packages__package_id ON ${prefix}_ref_resources_packages USING btree (package_id);`))
-        .then(() => client.query(`CREATE INDEX ${prefix}_ref_resources_packages__resource_id ON ${prefix}_ref_resources_packages USING btree (resource_id);`))
-        .then(() => client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
-        package_id character varying(36) NOT NULL PRIMARY KEY,
-        tag_id character varying(36) NOT NULL PRIMARY KEY,
-        CONSTRAINT ${prefix}_ref_tags_packages_pkey PRIMARY KEY (package_id, tag_id),
-        CONSTRAINT ${prefix}_ref_tags_packages_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE,
-        CONSTRAINT ${prefix}_ref_tags_packages_tag_id_fkey FOREIGN KEY (tag_id)
-          REFERENCES ${prefix}_tags (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`))
-        .then(() => client.query(`CREATE INDEX ${prefix}_ref_tags_packages__package_id ON ${prefix}_ref_tags_packages USING btree (package_id);`))
-        .then(() => client.query(`CREATE INDEX ${prefix}_ref_tags_packages__tag_id ON ${prefix}_ref_tags_packages USING btree (tag_id);`))
+        .then(() => client.query(`CREATE INDEX ${prefix}_ref_groups_packages__group_id ON ${prefix}_ref_groups_packages USING btree (group_id);`))
         .then(() => client.query(`CREATE TABLE ${prefix}_resources (
         id character varying(36) NOT NULL,
         name text,
@@ -540,17 +512,47 @@ exports.initTables = (client, prefix, domain, filter) => {
         vocabulary_id text,
         CONSTRAINT ${prefix}_tags_pkey PRIMARY KEY (id)
     );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
+        package_id character varying(36) NOT NULL,
+        resource_id character varying(36) NOT NULL,
+        CONSTRAINT ${prefix}_ref_resources_packages_pkey PRIMARY KEY (package_id, resource_id),
+        CONSTRAINT ${prefix}_ref_resources_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_resources_packages_resource_id_fkey FOREIGN KEY (resource_id)
+          REFERENCES ${prefix}_resources (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE INDEX ${prefix}_ref_resources_packages__package_id ON ${prefix}_ref_resources_packages USING btree (package_id);`))
+        .then(() => client.query(`CREATE INDEX ${prefix}_ref_resources_packages__resource_id ON ${prefix}_ref_resources_packages USING btree (resource_id);`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
+        package_id character varying(36) NOT NULL,
+        tag_id character varying(36) NOT NULL,
+        CONSTRAINT ${prefix}_ref_tags_packages_pkey PRIMARY KEY (package_id, tag_id),
+        CONSTRAINT ${prefix}_ref_tags_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_tags_packages_tag_id_fkey FOREIGN KEY (tag_id)
+          REFERENCES ${prefix}_tags (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`))
+        .then(() => client.query(`CREATE INDEX ${prefix}_ref_tags_packages__package_id ON ${prefix}_ref_tags_packages USING btree (package_id);`))
+        .then(() => client.query(`CREATE INDEX ${prefix}_ref_tags_packages__tag_id ON ${prefix}_ref_tags_packages USING btree (tag_id);`))
         .then(() => {
         return Promise.resolve();
     });
 };
 exports.resetTables = (client, prefix) => {
-    return exports.tablesExist(client, prefix, definition_tables)
+    return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
             throw Error('Looks like the tables you are trying to reset, do not all exist.');
         }
-        return Promise.all(definition_tables.map((name) => {
+        return Promise.all(exports.definition_tables.map((name) => {
             return client.query(`TRUNCATE ${prefix}_${name}`);
         }));
     })
@@ -559,12 +561,12 @@ exports.resetTables = (client, prefix) => {
     });
 };
 exports.dropTables = (client, prefix) => {
-    return exports.tablesExist(client, prefix, definition_tables)
+    return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
             throw Error('Looks like the tables you are trying to drop, do not all exist.');
         }
-        return Promise.all(definition_tables.map((name) => {
+        return Promise.all(exports.definition_tables.map((name) => {
             return client.query(`DROP TABLE ${prefix}_${name}`);
         }));
     })

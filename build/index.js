@@ -43,16 +43,14 @@ local_microservice_1.api.get('/process/:identifier', (req, res) => {
         });
     });
 });
-local_microservice_1.api.get('/init/:identifier', (req, res) => {
-    handleInstance(req, res, ckanInstance => {
-        index_2.initTables(client, ckanInstance.prefix, ckanInstance.prefix, req.route.query.filter || null)
-            .then(() => {
-            res.status(200).json({ message: 'Init completed' });
-        })
-            .catch(err => {
-            res.status(500).json({ error: err.message });
-            throw err;
-        });
+local_microservice_1.api.get('/init/:domain/:prefix', (req, res) => {
+    index_2.initTables(client, req.params.prefix, req.params.domain, req.route.query.filter || null)
+        .then(() => {
+        res.status(200).json({ message: 'Init completed' });
+    })
+        .catch(err => {
+        res.status(500).json({ error: err.message });
+        throw err;
     });
 });
 local_microservice_1.api.get('/reset/:identifier', (req, res) => {

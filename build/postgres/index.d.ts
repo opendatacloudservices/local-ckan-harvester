@@ -1,5 +1,8 @@
 import { Client } from 'pg';
 import { CkanPackage } from '../ckan/index';
+export declare const definition_tables: string[];
+export declare const definition_master_table = "ckan_master";
+export declare const definition_logs_table = "ckan_logs";
 export declare const packageGetAction: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<string>;
 export declare const processPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
 export declare const removePackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
@@ -18,6 +21,6 @@ export declare const getInstance: (client: Client, identifier: string | number) 
     domain: string;
 }>;
 export declare const tablesExist: (client: Client, prefix: string, tables: string[]) => Promise<boolean>;
-export declare const initTables: (client: Client, prefix: string, domain: string, filter: string | null) => Promise<void>;
+export declare const initTables: (client: Client, prefix: string, domain: string, filter?: string | null | undefined) => Promise<void>;
 export declare const resetTables: (client: Client, prefix: string) => Promise<void>;
 export declare const dropTables: (client: Client, prefix: string) => Promise<void>;

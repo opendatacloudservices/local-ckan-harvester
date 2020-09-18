@@ -4,7 +4,7 @@
   "description": "Harvesting data sets from govdata",
   "main": "build/index.js",
   "scripts": {
-    "test": "jest test/test.js",
+    "test": "jest test/test.js --runInBand",
     "check": "gts check src/**/*.ts src/*.ts",
     "clean": "gts clean src/**/*.ts src/*.ts",
     "compile": "tsc",

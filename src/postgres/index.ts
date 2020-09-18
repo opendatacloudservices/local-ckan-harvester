@@ -2,7 +2,7 @@ import {Client, QueryResult} from 'pg';
 import {CkanPackage, CkanResource} from '../ckan/index';
 import * as moment from 'moment';
 
-const definition_tables = [
+export const definition_tables = [
   'extras',
   'groups',
   'organizations',
@@ -14,8 +14,8 @@ const definition_tables = [
   'tags',
 ];
 
-const definition_master_table = 'ckan_master';
-const definition_logs_table = 'ckan_logs';
+export const definition_master_table = 'ckan_master';
+export const definition_logs_table = 'ckan_logs';
 
 export const packageGetAction = (
   client: Client,
@@ -423,7 +423,7 @@ export const packageUpsertTags = async (
 export const masterTableExist = (client: Client): Promise<boolean> => {
   return client
     .query(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND name = '${definition_master_table}'`
+      `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${definition_master_table}'`
     )
     .then(result => {
       if (result.rows.length > 0) {
@@ -438,23 +438,25 @@ export const initMasterTable = (client: Client): Promise<void> => {
   return client
     .query(
       `CREATE TABLE ${definition_master_table} (
-    id SERIAL,
-    prefix text NOT NULL,
-    domain text NOT NULL,
-    date_added timestamp without time zone,
-    date_updated timestamp without time zone,
-    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
-  );`
+      id SERIAL,
+      prefix text NOT NULL,
+      domain text NOT NULL,
+      filter text,
+      date_added timestamp without time zone,
+      date_updated timestamp without time zone,
+      CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
+    );`
     )
     .then(() =>
-      client.query(`CREATE TABLE ${definition_master_table} (
-    id SERIAL,
-    prefix text NOT NULL,
-    domain text NOT NULL,
-    date_added timestamp without time zone,
-    date_updated timestamp without time zone,
-    CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
-  );`)
+      client.query(`CREATE TABLE ${definition_logs_table} (
+      id SERIAL,
+      code text,
+      label text,
+      message text,
+      attachment text,
+      date timestamp without time zone,
+      CONSTRAINT ${definition_logs_table}_pkey PRIMARY KEY (id)
+    );`)
     )
     .then(() => Promise.resolve());
 };
@@ -524,7 +526,7 @@ export const initTables = (
   client: Client,
   prefix: string,
   domain: string,
-  filter: string | null
+  filter?: string | null
 ): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
     .then(exists => {
@@ -545,19 +547,6 @@ export const initTables = (
         ($1, $2, $3, $4);`,
         [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss'), filter]
       )
-    )
-    .then(() =>
-      client.query(`CREATE TABLE ${prefix}_extras (
-        id SERIAL,
-        package_id character varying(36) NOT NULL,
-        key text,
-        value text,
-        CONSTRAINT ${prefix}_extras_pkey PRIMARY KEY (id),
-        CONSTRAINT ${prefix}_extras_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`)
     )
     .then(() =>
       client.query(`CREATE TABLE ${prefix}_groups (
@@ -619,6 +608,19 @@ export const initTables = (
     );`)
     )
     .then(() =>
+      client.query(`CREATE TABLE ${prefix}_extras (
+        id SERIAL,
+        package_id character varying(36) NOT NULL,
+        key text,
+        value text,
+        CONSTRAINT ${prefix}_extras_pkey PRIMARY KEY (id),
+        CONSTRAINT ${prefix}_extras_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+      );`)
+    )
+    .then(() =>
       client.query(`CREATE TABLE ${prefix}_ref_groups_packages (
         package_id character varying(36) NOT NULL,
         group_id character varying(36) NOT NULL,
@@ -640,57 +642,7 @@ export const initTables = (
     )
     .then(() =>
       client.query(
-        `CREATE INDEX ${prefix}_ref_groups_packages__group_id ON ${prefix}_ref_groups_packages USING btree (group_id_id);`
-      )
-    )
-    .then(() =>
-      client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
-        package_id character varying(36) NOT NULL PRIMARY KEY,
-        resource_id character varying(36) NOT NULL PRIMARY KEY,
-        CONSTRAINT ${prefix}_ref_resources_packages_pkey PRIMARY KEY (package_id, resource_id),
-        CONSTRAINT ${prefix}_ref_resources_packages_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE,
-        CONSTRAINT ${prefix}_ref_resources_packages_resource_id_fkey FOREIGN KEY (resource_id)
-          REFERENCES p${prefix}_resources (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`)
-    )
-    .then(() =>
-      client.query(
-        `CREATE INDEX ${prefix}_ref_resources_packages__package_id ON ${prefix}_ref_resources_packages USING btree (package_id);`
-      )
-    )
-    .then(() =>
-      client.query(
-        `CREATE INDEX ${prefix}_ref_resources_packages__resource_id ON ${prefix}_ref_resources_packages USING btree (resource_id);`
-      )
-    )
-    .then(() =>
-      client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
-        package_id character varying(36) NOT NULL PRIMARY KEY,
-        tag_id character varying(36) NOT NULL PRIMARY KEY,
-        CONSTRAINT ${prefix}_ref_tags_packages_pkey PRIMARY KEY (package_id, tag_id),
-        CONSTRAINT ${prefix}_ref_tags_packages_package_id_fkey FOREIGN KEY (package_id)
-          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE,
-        CONSTRAINT ${prefix}_ref_tags_packages_tag_id_fkey FOREIGN KEY (tag_id)
-          REFERENCES ${prefix}_tags (id) MATCH SIMPLE
-          ON UPDATE CASCADE
-          ON DELETE CASCADE
-    );`)
-    )
-    .then(() =>
-      client.query(
-        `CREATE INDEX ${prefix}_ref_tags_packages__package_id ON ${prefix}_ref_tags_packages USING btree (package_id);`
-      )
-    )
-    .then(() =>
-      client.query(
-        `CREATE INDEX ${prefix}_ref_tags_packages__tag_id ON ${prefix}_ref_tags_packages USING btree (tag_id);`
+        `CREATE INDEX ${prefix}_ref_groups_packages__group_id ON ${prefix}_ref_groups_packages USING btree (group_id);`
       )
     )
     .then(() =>
@@ -733,6 +685,56 @@ export const initTables = (
         vocabulary_id text,
         CONSTRAINT ${prefix}_tags_pkey PRIMARY KEY (id)
     );`)
+    )
+    .then(() =>
+      client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
+        package_id character varying(36) NOT NULL,
+        resource_id character varying(36) NOT NULL,
+        CONSTRAINT ${prefix}_ref_resources_packages_pkey PRIMARY KEY (package_id, resource_id),
+        CONSTRAINT ${prefix}_ref_resources_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_resources_packages_resource_id_fkey FOREIGN KEY (resource_id)
+          REFERENCES ${prefix}_resources (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`)
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_resources_packages__package_id ON ${prefix}_ref_resources_packages USING btree (package_id);`
+      )
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_resources_packages__resource_id ON ${prefix}_ref_resources_packages USING btree (resource_id);`
+      )
+    )
+    .then(() =>
+      client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
+        package_id character varying(36) NOT NULL,
+        tag_id character varying(36) NOT NULL,
+        CONSTRAINT ${prefix}_ref_tags_packages_pkey PRIMARY KEY (package_id, tag_id),
+        CONSTRAINT ${prefix}_ref_tags_packages_package_id_fkey FOREIGN KEY (package_id)
+          REFERENCES ${prefix}_packages (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE,
+        CONSTRAINT ${prefix}_ref_tags_packages_tag_id_fkey FOREIGN KEY (tag_id)
+          REFERENCES ${prefix}_tags (id) MATCH SIMPLE
+          ON UPDATE CASCADE
+          ON DELETE CASCADE
+    );`)
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_tags_packages__package_id ON ${prefix}_ref_tags_packages USING btree (package_id);`
+      )
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_tags_packages__tag_id ON ${prefix}_ref_tags_packages USING btree (tag_id);`
+      )
     )
     .then(() => {
       return Promise.resolve();
