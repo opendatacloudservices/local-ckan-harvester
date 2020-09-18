@@ -77,8 +77,6 @@ export const removePackage = (
   prefix: string,
   ckanPackage: CkanPackage
 ): Promise<void> => {
-  // we don't touch organizations, tags and groups, this could lead to orphan items in those meta tables
-  // TODO: check if organizations, tags and groups are actually used otherwise remove
   return client
     .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [
       ckanPackage.result.id,
@@ -112,6 +110,78 @@ export const removePackage = (
       client.query(
         `DELETE FROM ${prefix}_ref_resources_packages WHERE package_id = $1`,
         [ckanPackage.result.id]
+      )
+    )
+    .then(() =>
+      // remove orphan tags without packages
+      client.query(
+        `WITH temp AS (
+            SELECT
+              ${prefix}_tags.id AS tag_id,
+              COUNT(*) AS tag_count
+            FROM
+              ${prefix}_tags
+            JOIN
+              ${prefix}_ref_tags_packages
+              ON
+                ${prefix}_ref_tags_packages.tag_id = ${prefix}_tags.id
+            GROUP BY
+              ${prefix}_tags.id
+            ORDER BY
+              tag_count ASC
+        )
+        DELETE FROM 
+          ${prefix}_tags
+        WHERE
+          id IN (SELECT tag_id FROM temp WHERE tag_count = 0)`
+      )
+    )
+    .then(() =>
+      // remove orphan resources without packages
+      client.query(
+        `WITH temp AS (
+            SELECT
+              ${prefix}_resources.id AS resource_id,
+              COUNT(*) AS resource_count
+            FROM
+              ${prefix}_resources
+            JOIN
+              ${prefix}_ref_resources_packages
+              ON
+                ${prefix}_ref_resources_packages.resource_id = ${prefix}_resources.id
+            GROUP BY
+              ${prefix}_resources.id
+            ORDER BY
+              resource_count ASC
+        )
+        DELETE FROM 
+          ${prefix}_resources
+        WHERE
+          id IN (SELECT resource_id FROM temp WHERE resource_count = 0)`
+      )
+    )
+    .then(() =>
+      // remove orphan groups without packages
+      client.query(
+        `WITH temp AS (
+            SELECT
+              ${prefix}_groups.id AS group_id,
+              COUNT(*) AS group_count
+            FROM
+              ${prefix}_groups
+            JOIN
+              ${prefix}_ref_groups_packages
+              ON
+                ${prefix}_ref_groups_packages.group_id = ${prefix}_groups.id
+            GROUP BY
+              ${prefix}_groups.id
+            ORDER BY
+              group_count ASC
+        )
+        DELETE FROM 
+          ${prefix}_groups
+        WHERE
+          id IN (SELECT group_id FROM temp WHERE group_count = 0)`
       )
     )
     .then(() => Promise.resolve());
@@ -450,21 +520,32 @@ export const tablesExist = (
     });
 };
 
-export const initTables = (client: Client, prefix: string, domain: string): Promise<void> => {
+export const initTables = (
+  client: Client,
+  prefix: string,
+  domain: string,
+  filter: string | null
+): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
     .then(exists => {
       if (exists) {
-        Promise.reject(Error(
-          'Looks like the tables you are trying to create, do already exist.'
-        ));
+        Promise.reject(
+          Error(
+            'Looks like the tables you are trying to create, do already exist.'
+          )
+        );
       }
       return Promise.resolve();
     })
-    .then(() => client.query(`INSERT INTO ${definition_master_table} 
-        (prefix, domain, date_added)
+    .then(() =>
+      client.query(
+        `INSERT INTO ${definition_master_table} 
+        (prefix, domain, date_added, filter)
         VALUES
-        ($1, $2, $3);`,
-      [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss')]))
+        ($1, $2, $3, $4);`,
+        [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss'), filter]
+      )
+    )
     .then(() =>
       client.query(`CREATE TABLE ${prefix}_extras (
         id SERIAL,
@@ -553,6 +634,16 @@ export const initTables = (client: Client, prefix: string, domain: string): Prom
     );`)
     )
     .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_groups_packages__package_id ON ${prefix}_ref_groups_packages USING btree (package_id);`
+      )
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_groups_packages__group_id ON ${prefix}_ref_groups_packages USING btree (group_id_id);`
+      )
+    )
+    .then(() =>
       client.query(`CREATE TABLE ${prefix}_ref_resources_packages (
         package_id character varying(36) NOT NULL PRIMARY KEY,
         resource_id character varying(36) NOT NULL PRIMARY KEY,
@@ -568,6 +659,16 @@ export const initTables = (client: Client, prefix: string, domain: string): Prom
     );`)
     )
     .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_resources_packages__package_id ON ${prefix}_ref_resources_packages USING btree (package_id);`
+      )
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_resources_packages__resource_id ON ${prefix}_ref_resources_packages USING btree (resource_id);`
+      )
+    )
+    .then(() =>
       client.query(`CREATE TABLE ${prefix}_ref_tags_packages (
         package_id character varying(36) NOT NULL PRIMARY KEY,
         tag_id character varying(36) NOT NULL PRIMARY KEY,
@@ -581,6 +682,16 @@ export const initTables = (client: Client, prefix: string, domain: string): Prom
           ON UPDATE CASCADE
           ON DELETE CASCADE
     );`)
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_tags_packages__package_id ON ${prefix}_ref_tags_packages USING btree (package_id);`
+      )
+    )
+    .then(() =>
+      client.query(
+        `CREATE INDEX ${prefix}_ref_tags_packages__tag_id ON ${prefix}_ref_tags_packages USING btree (tag_id);`
+      )
     )
     .then(() =>
       client.query(`CREATE TABLE ${prefix}_resources (

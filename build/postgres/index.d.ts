@@ -9,7 +9,15 @@ export declare const packageInsertExtras: (client: Client, prefix: string, ckanP
 export declare const packageUpsertResources: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
 export declare const packageUpsertGroups: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
 export declare const packageUpsertTags: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<void>;
+export declare const masterTableExist: (client: Client) => Promise<boolean>;
+export declare const initMasterTable: (client: Client) => Promise<void>;
+export declare const dropMasterTable: (client: Client) => Promise<void>;
+export declare const getInstance: (client: Client, identifier: string | number) => Promise<{
+    id: number;
+    prefix: string;
+    domain: string;
+}>;
 export declare const tablesExist: (client: Client, prefix: string, tables: string[]) => Promise<boolean>;
-export declare const initTables: (client: Client, prefix: string) => Promise<void>;
+export declare const initTables: (client: Client, prefix: string, domain: string, filter: string | null) => Promise<void>;
 export declare const resetTables: (client: Client, prefix: string) => Promise<void>;
 export declare const dropTables: (client: Client, prefix: string) => Promise<void>;

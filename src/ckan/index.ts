@@ -1,17 +1,21 @@
 import fetch from 'node-fetch';
-
-// TODO: Handle broken internet connection?! < FetchError: invalid json response body at.... unexpected token ... in JSON
+import {Response} from 'node-fetch';
 
 export interface CkanPackageList {
   result: string[];
 }
 
-// TODO: replace prefix & table through master call > (number || string) 
+// eslint-disable-next-line
+const handleFetch = (res: Response): Promise<any> => {
+  if (res.status >= 200 && res.status < 300) {
+    return res.json();
+  } else {
+    return Promise.reject(Error(res.statusText || res.status.toString()));
+  }
+};
 
 export const packageList = (domain: string): Promise<CkanPackageList> => {
-  return fetch(`https://${domain}/api/3/action/package_list`).then(res =>
-    res.json()
-  );
+  return fetch(`https://${domain}/api/3/action/package_list`).then(handleFetch);
 };
 
 export interface CkanPackage {
@@ -106,7 +110,7 @@ export const packageShow = (
   domain: string,
   id: string
 ): Promise<CkanPackage> => {
-  return fetch(
-    `https://${domain}/api/3/action/package_show?id=${id}`
-  ).then(res => res.json());
+  return fetch(`https://${domain}/api/3/action/package_show?id=${id}`).then(
+    handleFetch
+  );
 };
