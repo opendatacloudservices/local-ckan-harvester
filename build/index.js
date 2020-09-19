@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.handleInstance = void 0;
 const index_1 = require("./ckan/index");
 const index_2 = require("./postgres/index");
 const dotenv = require("dotenv");
@@ -11,8 +12,8 @@ const local_microservice_1 = require("local-microservice");
 // connect to postgres (via env vars params)
 const client = new pg_1.Client();
 client.connect();
-const handleInstance = (req, res, next) => {
-    index_2.getInstance(client, req.params.identifier)
+exports.handleInstance = async (client, req, res, next) => {
+    return index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
         next(ckanInstance);
     })
@@ -27,8 +28,8 @@ const handleInstance = (req, res, next) => {
     });
 };
 local_microservice_1.api.get('/process/:identifier', (req, res) => {
-    handleInstance(req, res, ckanInstance => {
-        index_1.packageList(ckanInstance.domain)
+    exports.handleInstance(client, req, res, ckanInstance => {
+        return index_1.packageList(ckanInstance.domain)
             .then(async (list) => {
             for (let i = 0; i < list.result.length; i += 1) {
                 await index_1.packageShow(ckanInstance.domain, list.result[i]).then(async (ckanPackage) => {
@@ -54,8 +55,8 @@ local_microservice_1.api.get('/init/:domain/:prefix', (req, res) => {
     });
 });
 local_microservice_1.api.get('/reset/:identifier', (req, res) => {
-    handleInstance(req, res, ckanInstance => {
-        index_2.resetTables(client, ckanInstance.prefix)
+    exports.handleInstance(client, req, res, ckanInstance => {
+        return index_2.resetTables(client, ckanInstance.prefix)
             .then(() => {
             res.status(200).json({ message: 'Reset completed' });
         })
@@ -66,8 +67,8 @@ local_microservice_1.api.get('/reset/:identifier', (req, res) => {
     });
 });
 local_microservice_1.api.get('/drop/:identifier', (req, res) => {
-    handleInstance(req, res, ckanInstance => {
-        index_2.dropTables(client, ckanInstance.prefix)
+    exports.handleInstance(client, req, res, ckanInstance => {
+        return index_2.dropTables(client, ckanInstance.prefix)
             .then(() => {
             res.status(200).json({ message: 'Drop completed' });
         })
@@ -77,4 +78,5 @@ local_microservice_1.api.get('/drop/:identifier', (req, res) => {
         });
     });
 });
+local_microservice_1.catchAll();
 //# sourceMappingURL=index.js.map

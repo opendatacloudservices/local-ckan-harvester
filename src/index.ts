@@ -18,19 +18,20 @@ import {Client} from 'pg';
 // TODO: Error logging and process logging
 dotenv.config();
 
-import {api} from 'local-microservice';
+import {api, catchAll} from 'local-microservice';
 import {Response, Request} from 'express';
 
 // connect to postgres (via env vars params)
 const client = new Client();
 client.connect();
 
-const handleInstance = (
+export const handleInstance = async (
+  client: Client,
   req: Request,
   res: Response,
   next: (ckanInstance: {id: number; domain: string; prefix: string}) => void
-) => {
-  getInstance(client, req.params.identifier)
+): Promise<void> => {
+  return getInstance(client, req.params.identifier)
     .then(ckanInstance => {
       next(ckanInstance);
     })
@@ -45,8 +46,8 @@ const handleInstance = (
 };
 
 api.get('/process/:identifier', (req, res) => {
-  handleInstance(req, res, ckanInstance => {
-    packageList(ckanInstance.domain)
+  handleInstance(client, req, res, ckanInstance => {
+    return packageList(ckanInstance.domain)
       .then(async (list: CkanPackageList) => {
         for (let i = 0; i < list.result.length; i += 1) {
           await packageShow(ckanInstance.domain, list.result[i]).then(
@@ -81,8 +82,8 @@ api.get('/init/:domain/:prefix', (req, res) => {
 });
 
 api.get('/reset/:identifier', (req, res) => {
-  handleInstance(req, res, ckanInstance => {
-    resetTables(client, ckanInstance.prefix)
+  handleInstance(client, req, res, ckanInstance => {
+    return resetTables(client, ckanInstance.prefix)
       .then(() => {
         res.status(200).json({message: 'Reset completed'});
       })
@@ -94,8 +95,8 @@ api.get('/reset/:identifier', (req, res) => {
 });
 
 api.get('/drop/:identifier', (req, res) => {
-  handleInstance(req, res, ckanInstance => {
-    dropTables(client, ckanInstance.prefix)
+  handleInstance(client, req, res, ckanInstance => {
+    return dropTables(client, ckanInstance.prefix)
       .then(() => {
         res.status(200).json({message: 'Drop completed'});
       })
@@ -105,3 +106,5 @@ api.get('/drop/:identifier', (req, res) => {
       });
   });
 });
+
+catchAll();

@@ -1,6 +1,7 @@
 const dotenv = require('dotenv');
 const pg = require('pg');
 const {packageList, packageShow} = require('../build/ckan/index');
+const {handleInstance, closeServer} = require('../build/index');
 const {
   definition_master_table,
   definition_tables,
@@ -133,6 +134,22 @@ test('getInstance (govdata)', async () => {
     .then((ckanInstance) => {
       expect(ckanInstance).toMatchObject(ckanMatchInstance);
     });
+});
+
+test('handleInstance (govdata)', async () => {
+  const ckanMatchInstance = {
+    id: 1,
+    prefix: 'govdata',
+    domain: 'ckan.govdata.de'
+  };
+
+  const res = {};
+  res.status = () => res;
+  res.json = () => res;
+
+  await handleInstance(client, {params:{identifier:'govdata'}}, res, (ckanInstance) => {
+    expect(ckanInstance).toMatchObject(ckanMatchInstance);
+  });
 
   client.end();
 });
@@ -152,13 +169,7 @@ test('getInstance (govdata)', async () => {
 
 
 // check if ckan exists in demo database
-// drop ckan
-// init ckan
 // process ckan
-// reset ckan
-// drop ckan
-
-// test ckan
 
 // handleFetch
 
