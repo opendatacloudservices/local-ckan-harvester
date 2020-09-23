@@ -15,6 +15,7 @@ const handleFetch = (res: Response): Promise<any> => {
 };
 
 export const packageList = (domain: string): Promise<CkanPackageList> => {
+  // TODO: Pagination
   return fetch(`https://${domain}/api/3/action/package_list`).then(handleFetch);
 };
 

@@ -3,13 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
 const moment = require("moment");
 exports.definition_tables = [
-    'extras',
-    'groups',
-    'organizations',
-    'packages',
     'ref_groups_packages',
     'ref_tags_packages',
     'ref_resources_packages',
+    'extras',
+    'groups',
+    'packages',
+    'organizations',
     'resources',
     'tags',
 ];
@@ -35,6 +35,7 @@ exports.packageGetAction = (client, prefix, ckanPackage) => {
     });
 };
 exports.processPackage = (client, prefix, ckanPackage) => {
+    // TODO: Apply filter here (as package_list does not support filter)
     return exports.packageGetAction(client, prefix, ckanPackage).then(async (action) => {
         if (action === 'nothing') {
             return Promise.resolve();
@@ -43,11 +44,11 @@ exports.processPackage = (client, prefix, ckanPackage) => {
             if (action === 'update') {
                 // we are not keeping a detailed version history, as the meta data is unreliable anyway
                 // if something changes, we purge the old data and add the new
-                await exports.removePackage(client, prefix, ckanPackage);
+                await exports.removePackage(client, prefix, ckanPackage.result.id);
             }
             const inserts = [
-                exports.insertPackage,
                 exports.packageUpsertOrganization,
+                exports.insertPackage,
                 exports.packageInsertExtras,
                 exports.packageUpsertResources,
                 exports.packageUpsertGroups,
@@ -57,20 +58,18 @@ exports.processPackage = (client, prefix, ckanPackage) => {
         }
     });
 };
-exports.removePackage = (client, prefix, ckanPackage) => {
+exports.removePackage = (client, prefix, packageId) => {
     return client
-        .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [
-        ckanPackage.result.id,
-    ])
+        .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [packageId])
         .then(() => client.query(`DELETE FROM ${prefix}_extras WHERE package_id = $1`, [
-        ckanPackage.result.id,
+        packageId,
     ]))
-        .then(() => client.query(`DELETE FROM ${prefix}_ref_tags_packages WHERE package_id = $1`, [ckanPackage.result.id]))
-        .then(() => client.query(`DELETE FROM ${prefix}_ref_groups_packages WHERE package_id = $1`, [ckanPackage.result.id]))
-        .then(() => client.query(`DELETE FROM ${prefix}_resources WHERE resource_id IN (
+        .then(() => client.query(`DELETE FROM ${prefix}_ref_tags_packages WHERE package_id = $1`, [packageId]))
+        .then(() => client.query(`DELETE FROM ${prefix}_ref_groups_packages WHERE package_id = $1`, [packageId]))
+        .then(() => client.query(`DELETE FROM ${prefix}_resources WHERE id IN (
       SELECT resource_id FROM ${prefix}_ref_resources_packages WHERE package_id = $1
-    )`, [ckanPackage.result.id]))
-        .then(() => client.query(`DELETE FROM ${prefix}_ref_resources_packages WHERE package_id = $1`, [ckanPackage.result.id]))
+    )`, [packageId]))
+        .then(() => client.query(`DELETE FROM ${prefix}_ref_resources_packages WHERE package_id = $1`, [packageId]))
         .then(() => 
     // remove orphan tags without packages
     client.query(`WITH temp AS (
@@ -180,7 +179,7 @@ exports.packageUpsertOrganization = (client, prefix, ckanPackage) => {
       id, name, title, description, type, state, image_url, 
       is_organization, created, revision_id) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-      ) ON CONFLICT (id) DO UPATE SET
+      ) ON CONFLICT (id) DO UPDATE SET
       name = $2, title = $3, description = $4, type = $5, state = $6, image_url = $7, 
       is_organization = $8, created = $9, revision_id = $10`, [
         o.id,
@@ -250,16 +249,14 @@ exports.packageUpsertResources = async (client, prefix, ckanPackage) => {
             'access_url',
             'resource_type',
         ];
-        const packageKeys = columns;
+        const packageKeys = JSON.parse(JSON.stringify(columns));
         // messy json keys in CKAN
         packageKeys[0] = 'licenseAttributionByText';
         for (let r = 0; r < ckanPackage.result.resources.length; r += 1) {
             const query = `INSERT INTO ${prefix}_resources
           (${columns.join(',')})
         VALUES 
-          (${new Array(columns.length)
-                .map((val, idx) => `$${idx + 1}`)
-                .join(',')})
+          (${columns.map((val, idx) => `$${idx + 1}`).join(',')})
         ON CONFLICT (id) DO UPDATE SET
           ${columns.map((val, idx) => `${val} = $${idx + 1}`).join(',')}`;
             const params = [];
@@ -440,7 +437,7 @@ exports.initTables = (client, prefix, domain, filter) => {
         private boolean,
         maintainer text,
         license_title text,
-        organization_id character varying(36),
+        organization_id character varying(36) DEFAULT NULL,
         ckan_id text,
         ckan_status text,
         CONSTRAINT ${prefix}_packages_pkey PRIMARY KEY (id),
@@ -552,9 +549,9 @@ exports.resetTables = (client, prefix) => {
         if (!exists) {
             throw Error('Looks like the tables you are trying to reset, do not all exist.');
         }
-        return Promise.all(exports.definition_tables.map((name) => {
-            return client.query(`TRUNCATE ${prefix}_${name}`);
-        }));
+        return client.query(`TRUNCATE ${exports.definition_tables
+            .map(name => `${prefix}_${name}`)
+            .join(',')}`);
     })
         .then(() => {
         return Promise.resolve();

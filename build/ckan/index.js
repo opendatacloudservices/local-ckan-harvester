@@ -12,6 +12,7 @@ const handleFetch = (res) => {
     }
 };
 exports.packageList = (domain) => {
+    // TODO: Pagination
     return node_fetch_1.default(`https://${domain}/api/3/action/package_list`).then(handleFetch);
 };
 exports.packageShow = (domain, id) => {

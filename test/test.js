@@ -1,6 +1,6 @@
 const dotenv = require('dotenv');
 const pg = require('pg');
-const {packageList, packageShow} = require('../build/ckan/index');
+const {packageList, packageShow, handleFetch} = require('../build/ckan/index');
 const {handleInstance, closeServer} = require('../build/index');
 const {
   definition_master_table,
@@ -9,8 +9,17 @@ const {
   initTables,
   getInstance,
   masterTableExist,
-  tablesExist
+  tablesExist,
+  processPackage,
+  packageGetAction,
+  resetTables,
+  dropTables,
+  dropMasterTable,
+  removePackage
 } = require('../build/postgres/index');
+const fetch = require('node-fetch');
+
+const sampleData = require('./details.json')
 
 // get environmental variables
 dotenv.config();
@@ -151,49 +160,90 @@ test('handleInstance (govdata)', async () => {
     expect(ckanInstance).toMatchObject(ckanMatchInstance);
   });
 
-  client.end();
 });
 
-// test api endpoints
-// handleInstance, drop, init process, reset
+test('processPackage (sample data)', async () => {
+  await packageGetAction(client, 'govdata', sampleData)
+    .then((result) => {
+      expect(result).toEqual('insert');
+      return processPackage(client, 'govdata', sampleData);
+    }).then(() => {
+      return packageGetAction(client, 'govdata', sampleData);
+    }).then((result) => {
+      expect(result).toEqual('nothing');
+      sampleData.result.revision_id = "t";
+      return packageGetAction(client, 'govdata', sampleData);
+    }).then((result) => {
+      expect(result).toEqual('update');
+      return removePackage(client, 'govdata', sampleData.result.id);
+    }).then(() => {
+      return packageGetAction(client, 'govdata', sampleData);
+    }).then((result) => {
+      expect(result).toEqual('insert');
+      return processPackage(client, 'govdata', sampleData);
+    }).then(() => {
+      return resetTables(client, 'govdata');
+    }).then(() => {
+      return packageGetAction(client, 'govdata', sampleData);
+    }).then((result) => {
+      expect(result).toEqual('insert');
+    });
+});
 
-// test postgres
-// insertPackage
-// packageGetAction
-// processPackage
+test('dropTables', async () => {
+  await dropTables(client, 'govdata')
+    .then(() => {
+      return client.query(`SELECT 
+        tablename
+      FROM
+        pg_tables
+      WHERE
+        schemaname = 'public';`)
+    }).then((result) => {
+      expect(result.rowCount).toEqual(2);
+      return dropMasterTable(client);
+    })
+    .then(() => {
+      return client.query(`SELECT 
+        tablename
+      FROM
+        pg_tables
+      WHERE
+        schemaname = 'public';`)
+    }).then((result) => {
+      expect(result.rowCount).toEqual(0);
+    });
 
-// removePackage
-// resetTables
-// dropTables
-// dropMasterTable
+  client.end();
+})
 
+test('handleFetch', async () => {
+  await fetch('https://api.github.com/users/github')
+    .then((response) => response.json())
+    .then((json) => {
+      expect(json).toHaveProperty('name');
+      expect(json.name).toEqual('GitHub');
+    });
+})
 
-// check if ckan exists in demo database
-// process ckan
+test('packageList(using ckan.govdata.de)', async () => {
+  await packageList('ckan.govdata.de').then(ckanPackageList => {
+    expect(ckanPackageList).toHaveProperty('result');
+    expect(ckanPackageList.result.length).toBeGreaterThan(0);
+    expect(typeof ckanPackageList.result[0]).toBe('string');
+  });
+});
 
-// handleFetch
-
-
-// packageList
-// test('get list of packages (using ckan.govdata.de)', async () => {
-//   await packageList('ckan.govdata.de').then(ckanPackageList => {
-//     expect(ckanPackageList).toHaveProperty('result');
-//     expect(ckanPackageList.result.length).toBeGreaterThan(0);
-//     expect(typeof ckanPackageList.result[0]).toBe('string');
-//   });
-// });
-
-// packageShow
-// test('get an example package (using ckan.govdata.de)', async () => {
-//   await packageList('ckan.govdata.de')
-//     .then(ckanPackageList =>
-//       packageShow('ckan.govdata.de', ckanPackageList.result[0])
-//     )
-//     .then(ckanPackage => {
-//       expect(ckanPackage).toHaveProperty('result');
-//       // TODO: Test full object structure?!
-//       expect(ckanPackage.result).toHaveProperty('id');
-//     });
-// });
+test('packageShow (using ckan.govdata.de)', async () => {
+  await packageList('ckan.govdata.de')
+    .then(ckanPackageList =>
+      packageShow('ckan.govdata.de', ckanPackageList.result[0])
+    )
+    .then(ckanPackage => {
+      expect(ckanPackage).toHaveProperty('result');
+      // TODO: Test full object structure?!
+      expect(ckanPackage.result).toHaveProperty('id');
+    });
+});
 
 // Run tests for all ckan portals in the master db (different test file)

@@ -8,6 +8,7 @@
     "check": "gts check src/**/*.ts src/*.ts",
     "clean": "gts clean src/**/*.ts src/*.ts",
     "compile": "tsc",
+    "build": "npm run fix && npm run check && npm run compile",
     "fix": "gts fix src/**/*.ts src/*.ts",
     "exec": "tsc && node build/index"
   },
@@ -29,6 +30,7 @@
     "eslint": "^6.0.0",
     "gts": "^2.0.2",
     "jest": "^26.4.2",
+    "supertest": "^4.0.2",
     "ts-node": "^9.0.0",
     "typescript": "^3.8.3"
   },

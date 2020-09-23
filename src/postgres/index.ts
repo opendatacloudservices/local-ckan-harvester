@@ -3,13 +3,13 @@ import {CkanPackage, CkanResource} from '../ckan/index';
 import * as moment from 'moment';
 
 export const definition_tables = [
-  'extras',
-  'groups',
-  'organizations',
-  'packages',
   'ref_groups_packages',
   'ref_tags_packages',
   'ref_resources_packages',
+  'extras',
+  'groups',
+  'packages',
+  'organizations',
   'resources',
   'tags',
 ];
@@ -44,6 +44,7 @@ export const processPackage = (
   prefix: string,
   ckanPackage: CkanPackage
 ): Promise<void> => {
+  // TODO: Apply filter here (as package_list does not support filter)
   return packageGetAction(client, prefix, ckanPackage).then(
     async (action: string) => {
       if (action === 'nothing') {
@@ -52,12 +53,12 @@ export const processPackage = (
         if (action === 'update') {
           // we are not keeping a detailed version history, as the meta data is unreliable anyway
           // if something changes, we purge the old data and add the new
-          await removePackage(client, prefix, ckanPackage);
+          await removePackage(client, prefix, ckanPackage.result.id);
         }
 
         const inserts = [
-          insertPackage,
           packageUpsertOrganization,
+          insertPackage,
           packageInsertExtras,
           packageUpsertResources,
           packageUpsertGroups,
@@ -75,41 +76,39 @@ export const processPackage = (
 export const removePackage = (
   client: Client,
   prefix: string,
-  ckanPackage: CkanPackage
+  packageId: string
 ): Promise<void> => {
   return client
-    .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [
-      ckanPackage.result.id,
-    ])
+    .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [packageId])
     .then(() =>
       client.query(`DELETE FROM ${prefix}_extras WHERE package_id = $1`, [
-        ckanPackage.result.id,
+        packageId,
       ])
     )
     .then(() =>
       client.query(
         `DELETE FROM ${prefix}_ref_tags_packages WHERE package_id = $1`,
-        [ckanPackage.result.id]
+        [packageId]
       )
     )
     .then(() =>
       client.query(
         `DELETE FROM ${prefix}_ref_groups_packages WHERE package_id = $1`,
-        [ckanPackage.result.id]
+        [packageId]
       )
     )
     .then(() =>
       client.query(
-        `DELETE FROM ${prefix}_resources WHERE resource_id IN (
+        `DELETE FROM ${prefix}_resources WHERE id IN (
       SELECT resource_id FROM ${prefix}_ref_resources_packages WHERE package_id = $1
     )`,
-        [ckanPackage.result.id]
+        [packageId]
       )
     )
     .then(() =>
       client.query(
         `DELETE FROM ${prefix}_ref_resources_packages WHERE package_id = $1`,
-        [ckanPackage.result.id]
+        [packageId]
       )
     )
     .then(() =>
@@ -244,7 +243,7 @@ export const packageUpsertOrganization = (
       id, name, title, description, type, state, image_url, 
       is_organization, created, revision_id) VALUES (
       $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-      ) ON CONFLICT (id) DO UPATE SET
+      ) ON CONFLICT (id) DO UPDATE SET
       name = $2, title = $3, description = $4, type = $5, state = $6, image_url = $7, 
       is_organization = $8, created = $9, revision_id = $10`,
       [
@@ -330,7 +329,7 @@ export const packageUpsertResources = async (
       'resource_type',
     ];
 
-    const packageKeys = columns;
+    const packageKeys = JSON.parse(JSON.stringify(columns));
 
     // messy json keys in CKAN
     packageKeys[0] = 'licenseAttributionByText';
@@ -339,9 +338,7 @@ export const packageUpsertResources = async (
       const query = `INSERT INTO ${prefix}_resources
           (${columns.join(',')})
         VALUES 
-          (${new Array(columns.length)
-            .map((val, idx) => `$${idx + 1}`)
-            .join(',')})
+          (${columns.map((val, idx) => `$${idx + 1}`).join(',')})
         ON CONFLICT (id) DO UPDATE SET
           ${columns.map((val, idx) => `${val} = $${idx + 1}`).join(',')}`;
 
@@ -597,7 +594,7 @@ export const initTables = (
         private boolean,
         maintainer text,
         license_title text,
-        organization_id character varying(36),
+        organization_id character varying(36) DEFAULT NULL,
         ckan_id text,
         ckan_status text,
         CONSTRAINT ${prefix}_packages_pkey PRIMARY KEY (id),
@@ -749,10 +746,10 @@ export const resetTables = (client: Client, prefix: string): Promise<void> => {
           'Looks like the tables you are trying to reset, do not all exist.'
         );
       }
-      return Promise.all(
-        definition_tables.map((name: string) => {
-          return client.query(`TRUNCATE ${prefix}_${name}`);
-        })
+      return client.query(
+        `TRUNCATE ${definition_tables
+          .map(name => `${prefix}_${name}`)
+          .join(',')}`
       );
     })
     .then(() => {
