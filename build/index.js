@@ -4,13 +4,20 @@ exports.handleInstance = void 0;
 const index_1 = require("./ckan/index");
 const index_2 = require("./postgres/index");
 const dotenv = require("dotenv");
+const path = require("path");
 const pg_1 = require("pg");
 // get environmental variables
-// TODO: Error logging and process logging
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
 const local_microservice_1 = require("local-microservice");
+// TODO: Error logging and process logging
 // connect to postgres (via env vars params)
-const client = new pg_1.Client();
+const client = new pg_1.Client({
+    user: process.env.PGUSER,
+    host: process.env.PGHOST,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    port: parseInt(process.env.PGPORT || '5432'),
+});
 client.connect();
 exports.handleInstance = async (client, req, res, next) => {
     return index_2.getInstance(client, req.params.identifier)
