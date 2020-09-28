@@ -54,6 +54,27 @@ export const handleInstance = async (
     });
 };
 
+/**
+ * @swagger
+ *
+ * /process/{identifier}:
+ *   get:
+ *     operationId: getProcess
+ *     description: Start the processing of a ckan instance
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: identifier
+ *         description: prefix (string) or ID (integer) of ckan instance.
+ *         in: path
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: process completed
+ *       500:
+ *         description: error
+ */
 api.get('/process/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
     return packageList(ckanInstance.domain, ckanInstance.version)
@@ -66,54 +87,139 @@ api.get('/process/:identifier', (req, res) => {
           );
         }
         res.status(200).json({message: 'Process completed'});
+      });
+  })
+  .catch(err => {
+    res.status(500).json({error: err.message});
+    throw err;
+  });
+});
+
+/**
+ * @swagger
+ *
+ * /init/{domain}/{prefix}/{version}:
+ *   get:
+ *     operationId: getInit
+ *     description: Initialize a new ckan instance
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: domain
+ *         description: Domain of the new instance, domain needs to include /api/.../ everything before /action/...
+ *         in: path
+ *         required: true
+ *         type: string
+ *       - name: prefix
+ *         description: Prefix used in the domain
+ *         in: path
+ *         required: true
+ *         type: string
+ *       - name: version
+ *         description: CKAN version either 1 and 3 are currently supported
+ *         in: path
+ *         required: true
+ *         type: integer
+ *       - name: filter
+ *         description: An object which is applied agains each imported object as a filter.
+ *         in: query
+ *         required: false
+ *         type: object
+ *     responses:
+ *       200:
+ *         description: Init completed
+ *       500:
+ *         description: error
+ */
+api.get('/init/:domain/:prefix', (req, res) => {
+  if (!('prefix' in req.params) || !('domain' in req.params) || !('version' in req.params)) {
+    const err = Error('Missing parameter: prefix: string, domain: string and version: number are required parameters!');
+    res.status(500).json({error: err.message});
+    throw err;
+  } else {
+    // TODO: Check that prefix is not yet used
+    initTables(
+      client,
+      req.params.prefix,
+      req.params.domain,
+      parseInt(req.params.version),
+      req.route.query.filter || null
+    )
+      .then(() => {
+        res.status(200).json({message: 'Init completed'});
       })
       .catch(err => {
         res.status(500).json({error: err.message});
         throw err;
       });
-  });
+  }
 });
 
-api.get('/init/:domain/:prefix', (req, res) => {
-  // domain needs to include /api/.../ everything before "/action/..."
-  initTables(
-    client,
-    req.params.prefix,
-    req.params.domain,
-    req.route.query.filter || null
-  )
-    .then(() => {
-      res.status(200).json({message: 'Init completed'});
-    })
-    .catch(err => {
-      res.status(500).json({error: err.message});
-      throw err;
-    });
-});
-
+/**
+ * @swagger
+ *
+ * /reset/{identifier}:
+ *   get:
+ *     operationId: getReset
+ *     description: Reset all tables of a ckan instance
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: identifier
+ *         description: prefix (string) or ID (integer) of ckan instance.
+ *         in: path
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: reset completed
+ *       500:
+ *         description: error
+ */
 api.get('/reset/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
     return resetTables(client, ckanInstance.prefix)
       .then(() => {
         res.status(200).json({message: 'Reset completed'});
-      })
-      .catch(err => {
-        res.status(500).json({error: err.message});
-        throw err;
       });
+  })
+  .catch(err => {
+    res.status(500).json({error: err.message});
+    throw err;
   });
 });
 
+/**
+ * @swagger
+ *
+ * /drop/{identifier}:
+ *   get:
+ *     operationId: getDrop
+ *     description: Drop a ckan instance
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - name: identifier
+ *         description: prefix (string) or ID (integer) of ckan instance.
+ *         in: path
+ *         required: true
+ *         type: string
+ *     responses:
+ *       200:
+ *         description: drop completed
+ *       500:
+ *         description: error
+ */
 api.get('/drop/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
     return dropTables(client, ckanInstance.prefix)
       .then(() => {
         res.status(200).json({message: 'Drop completed'});
-      })
-      .catch(err => {
-        res.status(500).json({error: err.message});
-        throw err;
       });
+  })
+  .catch(err => {
+    res.status(500).json({error: err.message});
+    throw err;
   });
 });
 

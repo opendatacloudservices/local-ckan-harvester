@@ -1,0 +1,141 @@
+{
+  "swagger": "2.0",
+  "basePath": "localhost:PORT",
+  "info": {
+    "title": "local-ckan-harvester",
+    "version": "1.0.0",
+    "description": "Service for harvesting and managing ckan instance data"
+  },
+  "paths": {
+    "/process/{identifier}": {
+      "get": {
+        "operationId": "getProcess",
+        "description": "Start the processing of a ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "description": "prefix (string) or ID (integer) of ckan instance.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "process completed"
+          },
+          "500": {
+            "description": "error"
+          }
+        }
+      }
+    },
+    "/init/{domain}/{prefix}/{version}": {
+      "get": {
+        "operationId": "getInit",
+        "description": "Initialize a new ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "domain",
+            "description": "Domain of the new instance, domain needs to include /api/.../ everything before /action/...",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "prefix",
+            "description": "Prefix used in the domain",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "version",
+            "description": "CKAN version either 1 and 3 are currently supported",
+            "in": "path",
+            "required": true,
+            "type": "integer"
+          },
+          {
+            "name": "filter",
+            "description": "An object which is applied agains each imported object as a filter.",
+            "in": "query",
+            "required": false,
+            "type": "object"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Init completed"
+          },
+          "500": {
+            "description": "error"
+          }
+        }
+      }
+    },
+    "/reset/{identifier}": {
+      "get": {
+        "operationId": "getReset",
+        "description": "Reset all tables of a ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "description": "prefix (string) or ID (integer) of ckan instance.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "reset completed"
+          },
+          "500": {
+            "description": "error"
+          }
+        }
+      }
+    },
+    "/drop/{identifier}": {
+      "get": {
+        "operationId": "getDrop",
+        "description": "Drop a ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "description": "prefix (string) or ID (integer) of ckan instance.",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "drop completed"
+          },
+          "500": {
+            "description": "error"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {},
+  "responses": {},
+  "parameters": {},
+  "securityDefinitions": {},
+  "tags": []
+}

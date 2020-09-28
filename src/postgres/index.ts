@@ -525,6 +525,7 @@ export const initTables = (
   client: Client,
   prefix: string,
   domain: string,
+  version: number,
   filter?: string | null
 ): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
@@ -541,10 +542,10 @@ export const initTables = (
     .then(() =>
       client.query(
         `INSERT INTO ${definition_master_table} 
-        (prefix, domain, date_added, filter)
+        (prefix, domain, version, date_added, filter)
         VALUES
-        ($1, $2, $3, $4);`,
-        [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss'), filter]
+        ($1, $2, $3, $4, $5);`,
+        [prefix, domain, version, moment().format('YYYY-MM-DD hh:mm:ss'), filter]
       )
     )
     .then(() =>

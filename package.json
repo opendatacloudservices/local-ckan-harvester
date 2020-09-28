@@ -10,7 +10,8 @@
     "compile": "tsc",
     "build": "npm run fix && npm run check && npm run compile",
     "fix": "gts fix src/**/*.ts src/*.ts",
-    "exec": "tsc && node build/index"
+    "exec": "tsc && node build/index",
+    "docs": "swagger-jsdoc -d docs/swagger.definition.json -o docs/swagger.json src/index.ts && java -jar ../swagger-codegen-cli.jar generate -i ./docs/swagger.json -l html2 -o ./docs/"
   },
   "repository": {
     "type": "git",

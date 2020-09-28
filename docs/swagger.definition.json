@@ -1,0 +1,9 @@
+{
+  "swagger": "2.0",
+  "basePath": "localhost:PORT",
+  "info": {
+    "title": "local-ckan-harvester",
+    "version": "1.0.0",
+    "description": "Service for harvesting and managing ckan instance data"
+  }
+}
