@@ -175,7 +175,7 @@ api.get('/init/:domain/:prefix', (req, res) => {
 /**
  * @swagger
  *
- * /drop/{identifier}:
+ * /reset/{identifier}:
  *   get:
  *     operationId: getReset
  *     description: Reset all tables of a ckan instance

@@ -90,6 +90,28 @@
         }
       }
     },
+    "/reset/{identifier}": {
+      "get": {
+        "operationId": "getReset",
+        "description": "Reset all tables of a ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reset completed"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/drop/{identifier}": {
       "get": {
         "operationId": "getDrop",
