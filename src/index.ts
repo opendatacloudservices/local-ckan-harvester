@@ -22,6 +22,7 @@ import {api, catchAll} from 'local-microservice';
 import {Response, Request} from 'express';
 
 // TODO: Error logging and process logging
+// TODO: Interface for handling all instances from database
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -37,7 +38,7 @@ export const handleInstance = async (
   client: Client,
   req: Request,
   res: Response,
-  next: (ckanInstance: {id: number; domain: string; prefix: string}) => void
+  next: (ckanInstance: {id: number; domain: string; prefix: string, version: number}) => void
 ): Promise<void> => {
   return getInstance(client, req.params.identifier)
     .then(ckanInstance => {
@@ -55,10 +56,10 @@ export const handleInstance = async (
 
 api.get('/process/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
-    return packageList(ckanInstance.domain)
+    return packageList(ckanInstance.domain, ckanInstance.version)
       .then(async (list: CkanPackageList) => {
         for (let i = 0; i < list.result.length; i += 1) {
-          await packageShow(ckanInstance.domain, list.result[i]).then(
+          await packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(
             async (ckanPackage: CkanPackage) => {
               return processPackage(client, ckanInstance.prefix, ckanPackage);
             }
@@ -74,6 +75,7 @@ api.get('/process/:identifier', (req, res) => {
 });
 
 api.get('/init/:domain/:prefix', (req, res) => {
+  // domain needs to include /api/.../ everything before "/action/..."
   initTables(
     client,
     req.params.prefix,
@@ -114,5 +116,8 @@ api.get('/drop/:identifier', (req, res) => {
       });
   });
 });
+
+// API to init/clear database
+// TODO: postgres backup function to RAID
 
 catchAll();

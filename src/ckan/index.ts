@@ -14,9 +14,12 @@ const handleFetch = (res: Response): Promise<any> => {
   }
 };
 
-export const packageList = (domain: string): Promise<CkanPackageList> => {
-  // TODO: Pagination
-  return fetch(`https://${domain}/api/3/action/package_list`).then(handleFetch);
+export const packageList = (domain: string, version: number): Promise<CkanPackageList> => {
+  if (version === 1) {
+    return fetch(`https://${domain}/rest/dataset`).then(handleFetch);
+  } else {
+    return fetch(`https://${domain}/action/package_list`).then(handleFetch);
+  }
 };
 
 export interface CkanPackage {
@@ -109,9 +112,12 @@ export type CkanResource = {
 
 export const packageShow = (
   domain: string,
+  version: number,
   id: string
 ): Promise<CkanPackage> => {
-  return fetch(`https://${domain}/api/3/action/package_show?id=${id}`).then(
-    handleFetch
-  );
+  if (version === 1) {
+    return fetch(`https://${domain}/rest/dataset/${id}`).then(handleFetch);
+  } else {
+    return fetch(`https://${domain}/action/package_show?id=${id}`).then(handleFetch);
+  }
 };

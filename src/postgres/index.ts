@@ -439,6 +439,7 @@ export const initMasterTable = (client: Client): Promise<void> => {
       prefix text NOT NULL,
       domain text NOT NULL,
       filter text,
+      version integer NOT NULL,
       date_added timestamp without time zone,
       date_updated timestamp without time zone,
       CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
@@ -468,10 +469,10 @@ export const dropMasterTable = (client: Client): Promise<void> => {
 export const getInstance = (
   client: Client,
   identifier: string | number
-): Promise<{id: number; prefix: string; domain: string}> => {
+): Promise<{id: number; prefix: string; domain: string, version: number}> => {
   return client
     .query(
-      `SELECT id, prefix, domain FROM ${definition_master_table} WHERE ${
+      `SELECT id, prefix, domain, version FROM ${definition_master_table} WHERE ${
         typeof identifier === 'number' ? 'id' : 'prefix'
       } = $1`,
       [identifier]
@@ -482,6 +483,7 @@ export const getInstance = (
           id: result.rows[0].id,
           prefix: result.rows[0].prefix,
           domain: result.rows[0].domain,
+          version: result.rows[0].version,
         });
       } else {
         return Promise.reject(Error('Instance not found.'));
