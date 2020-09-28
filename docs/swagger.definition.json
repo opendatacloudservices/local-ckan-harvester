@@ -1,6 +1,12 @@
 {
   "swagger": "2.0",
-  "basePath": "localhost:PORT",
+  "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "http://localhost:9999",
+      "description": "Localhost"
+    }
+  ],
   "info": {
     "title": "local-ckan-harvester",
     "version": "1.0.0",

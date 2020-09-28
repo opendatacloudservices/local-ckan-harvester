@@ -57,6 +57,23 @@ export const handleInstance = async (
 /**
  * @swagger
  *
+ * components:
+ *   parameters:
+ *     identifier:
+ *       name: identifier
+ *       description: prefix (string) or ID (integer) of ckan instance.
+ *       in: path
+ *       required: true
+ *       schema:
+ *         type: string
+ *   responses:
+ *     500:
+ *       description: error
+ */
+
+/**
+ * @swagger
+ *
  * /process/{identifier}:
  *   get:
  *     operationId: getProcess
@@ -64,16 +81,12 @@ export const handleInstance = async (
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: identifier
- *         description: prefix (string) or ID (integer) of ckan instance.
- *         in: path
- *         required: true
- *         type: string
+ *       - $ref: '#/components/parameters/identifier'
  *     responses:
  *       200:
  *         description: process completed
  *       500:
- *         description: error
+ *         $ref: '#/components/responses/500'
  */
 api.get('/process/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
@@ -109,27 +122,31 @@ api.get('/process/:identifier', (req, res) => {
  *         description: Domain of the new instance, domain needs to include /api/.../ everything before /action/...
  *         in: path
  *         required: true
- *         type: string
+ *         schema:
+ *           type: string
  *       - name: prefix
  *         description: Prefix used in the domain
  *         in: path
  *         required: true
- *         type: string
+ *         schema:
+ *           type: string
  *       - name: version
  *         description: CKAN version either 1 and 3 are currently supported
  *         in: path
  *         required: true
- *         type: integer
+ *         schema:
+ *           type: integer
  *       - name: filter
  *         description: An object which is applied agains each imported object as a filter.
  *         in: query
  *         required: false
- *         type: object
+ *         schema:
+ *           type: object
  *     responses:
  *       200:
  *         description: Init completed
  *       500:
- *         description: error
+ *         $ref: '#/components/responses/500'
  */
 api.get('/init/:domain/:prefix', (req, res) => {
   if (!('prefix' in req.params) || !('domain' in req.params) || !('version' in req.params)) {
@@ -158,23 +175,19 @@ api.get('/init/:domain/:prefix', (req, res) => {
 /**
  * @swagger
  *
- * /reset/{identifier}:
+ * /drop/{identifier}:
  *   get:
  *     operationId: getReset
  *     description: Reset all tables of a ckan instance
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: identifier
- *         description: prefix (string) or ID (integer) of ckan instance.
- *         in: path
- *         required: true
- *         type: string
+ *       - $ref: '#/components/parameters/identifier'
  *     responses:
- *       200:
- *         description: reset completed
  *       500:
- *         description: error
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Reset completed
  */
 api.get('/reset/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
@@ -195,20 +208,16 @@ api.get('/reset/:identifier', (req, res) => {
  * /drop/{identifier}:
  *   get:
  *     operationId: getDrop
- *     description: Drop a ckan instance
+ *     description: Drop all tables of a ckan instance
  *     produces:
  *       - application/json
  *     parameters:
- *       - name: identifier
- *         description: prefix (string) or ID (integer) of ckan instance.
- *         in: path
- *         required: true
- *         type: string
+ *       - $ref: '#/components/parameters/identifier'
  *     responses:
- *       200:
- *         description: drop completed
  *       500:
- *         description: error
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Drop completed
  */
 api.get('/drop/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {

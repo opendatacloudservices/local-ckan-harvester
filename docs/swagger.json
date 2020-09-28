@@ -1,6 +1,12 @@
 {
   "swagger": "2.0",
-  "basePath": "localhost:PORT",
+  "openapi": "3.0.0",
+  "servers": [
+    {
+      "url": "http://localhost:9999",
+      "description": "Localhost"
+    }
+  ],
   "info": {
     "title": "local-ckan-harvester",
     "version": "1.0.0",
@@ -16,11 +22,7 @@
         ],
         "parameters": [
           {
-            "name": "identifier",
-            "description": "prefix (string) or ID (integer) of ckan instance.",
-            "in": "path",
-            "required": true,
-            "type": "string"
+            "$ref": "#/components/parameters/identifier"
           }
         ],
         "responses": {
@@ -28,7 +30,7 @@
             "description": "process completed"
           },
           "500": {
-            "description": "error"
+            "$ref": "#/components/responses/500"
           }
         }
       }
@@ -46,28 +48,36 @@
             "description": "Domain of the new instance, domain needs to include /api/.../ everything before /action/...",
             "in": "path",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "prefix",
             "description": "Prefix used in the domain",
             "in": "path",
             "required": true,
-            "type": "string"
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "version",
             "description": "CKAN version either 1 and 3 are currently supported",
             "in": "path",
             "required": true,
-            "type": "integer"
+            "schema": {
+              "type": "integer"
+            }
           },
           {
             "name": "filter",
             "description": "An object which is applied agains each imported object as a filter.",
             "in": "query",
             "required": false,
-            "type": "object"
+            "schema": {
+              "type": "object"
+            }
           }
         ],
         "responses": {
@@ -75,33 +85,7 @@
             "description": "Init completed"
           },
           "500": {
-            "description": "error"
-          }
-        }
-      }
-    },
-    "/reset/{identifier}": {
-      "get": {
-        "operationId": "getReset",
-        "description": "Reset all tables of a ckan instance",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "identifier",
-            "description": "prefix (string) or ID (integer) of ckan instance.",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "reset completed"
-          },
-          "500": {
-            "description": "error"
+            "$ref": "#/components/responses/500"
           }
         }
       }
@@ -109,33 +93,43 @@
     "/drop/{identifier}": {
       "get": {
         "operationId": "getDrop",
-        "description": "Drop a ckan instance",
+        "description": "Drop all tables of a ckan instance",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "identifier",
-            "description": "prefix (string) or ID (integer) of ckan instance.",
-            "in": "path",
-            "required": true,
-            "type": "string"
+            "$ref": "#/components/parameters/identifier"
           }
         ],
         "responses": {
           "200": {
-            "description": "drop completed"
+            "description": "Drop completed"
           },
           "500": {
-            "description": "error"
+            "$ref": "#/components/responses/500"
           }
         }
       }
     }
   },
-  "definitions": {},
-  "responses": {},
-  "parameters": {},
-  "securityDefinitions": {},
+  "components": {
+    "parameters": {
+      "identifier": {
+        "name": "identifier",
+        "description": "prefix (string) or ID (integer) of ckan instance.",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "500": {
+        "description": "error"
+      }
+    }
+  },
   "tags": []
 }
