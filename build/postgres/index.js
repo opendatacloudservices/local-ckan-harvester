@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
+exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handlePackages = exports.handleInstance = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
+const index_1 = require("../ckan/index");
 const moment = require("moment");
 exports.definition_tables = [
     'ref_groups_packages',
@@ -15,6 +16,35 @@ exports.definition_tables = [
 ];
 exports.definition_master_table = 'ckan_master';
 exports.definition_logs_table = 'ckan_logs';
+exports.handleInstance = async (client, req, res, next) => {
+    return exports.getInstance(client, req.params.identifier)
+        .then(ckanInstance => {
+        next(ckanInstance);
+    })
+        .catch(err => {
+        if (err.message === 'Instance not found.') {
+            res.status(404).json({ message: 'Instance not found' });
+        }
+        else {
+            res.status(500).json({ error: err.message });
+            throw err;
+        }
+    });
+};
+exports.handlePackages = async (client, list, ckanInstance) => {
+    const logs = [];
+    for (let i = 0; i < list.result.length; i += 1) {
+        const log = await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
+            return exports.processPackage(client, ckanInstance.prefix, ckanPackage);
+        });
+        logs.push(log);
+    }
+    await client.query(`INSERT INTO ${exports.definition_logs_table}
+      (code, label, message, attachment, date)
+    VALUES
+      ($1, $2, $3, $4, CURRENT_TIMESTAMP());
+    `, ['handlePackages', ckanInstance.id, 'success', JSON.stringify(logs)]);
+};
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
         .query(`SELECT id, revision_id FROM ${prefix}_packages WHERE id = $1`, [
@@ -38,7 +68,10 @@ exports.processPackage = (client, prefix, ckanPackage) => {
     // TODO: Apply filter here (as package_list does not support filter)
     return exports.packageGetAction(client, prefix, ckanPackage).then(async (action) => {
         if (action === 'nothing') {
-            return Promise.resolve();
+            return Promise.resolve({
+                id: ckanPackage.result.id,
+                status: 'nothing',
+            });
         }
         else {
             ckanPackage.result.ckan_status = 'new';
@@ -56,7 +89,10 @@ exports.processPackage = (client, prefix, ckanPackage) => {
                 exports.packageUpsertGroups,
                 exports.packageUpsertTags,
             ];
-            return Promise.all(inserts.map(insert => insert(client, prefix, ckanPackage))).then(() => Promise.resolve());
+            return Promise.all(inserts.map(insert => insert(client, prefix, ckanPackage))).then(() => Promise.resolve({
+                id: ckanPackage.result.id,
+                status: ckanPackage.result.ckan_status || 'new',
+            }));
         }
     });
 };

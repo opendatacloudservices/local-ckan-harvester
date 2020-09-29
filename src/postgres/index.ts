@@ -1,6 +1,12 @@
 import {Client, QueryResult} from 'pg';
-import {CkanPackage, CkanResource} from '../ckan/index';
+import {
+  CkanPackage,
+  CkanResource,
+  CkanPackageList,
+  packageShow,
+} from '../ckan/index';
 import * as moment from 'moment';
+import {Response, Request} from 'express';
 
 export const definition_tables = [
   'ref_groups_packages',
@@ -16,6 +22,60 @@ export const definition_tables = [
 
 export const definition_master_table = 'ckan_master';
 export const definition_logs_table = 'ckan_logs';
+
+export type CkanInstance = {
+  id: number;
+  domain: string;
+  prefix: string;
+  version: number;
+};
+
+export const handleInstance = async (
+  client: Client,
+  req: Request,
+  res: Response,
+  next: (ckanInstance: CkanInstance) => void
+): Promise<void> => {
+  return getInstance(client, req.params.identifier)
+    .then(ckanInstance => {
+      next(ckanInstance);
+    })
+    .catch(err => {
+      if (err.message === 'Instance not found.') {
+        res.status(404).json({message: 'Instance not found'});
+      } else {
+        res.status(500).json({error: err.message});
+        throw err;
+      }
+    });
+};
+
+export const handlePackages = async (
+  client: Client,
+  list: CkanPackageList,
+  ckanInstance: CkanInstance
+) => {
+  const logs = [];
+  for (let i = 0; i < list.result.length; i += 1) {
+    const log = await packageShow(
+      ckanInstance.domain,
+      ckanInstance.version,
+      list.result[i]
+    ).then(async (ckanPackage: CkanPackage) => {
+      return processPackage(client, ckanInstance.prefix, ckanPackage);
+    });
+
+    logs.push(log);
+  }
+  await client.query(
+    `INSERT INTO ${definition_logs_table}
+      (code, label, message, attachment, date)
+    VALUES
+      ($1, $2, $3, $4, CURRENT_TIMESTAMP());
+    `,
+    ['handlePackages', ckanInstance.id, 'success', JSON.stringify(logs)]
+  );
+};
 
 export const packageGetAction = (
   client: Client,
@@ -43,12 +103,15 @@ export const processPackage = (
   client: Client,
   prefix: string,
   ckanPackage: CkanPackage
-): Promise<void> => {
+): Promise<{id: string; status: string}> => {
   // TODO: Apply filter here (as package_list does not support filter)
   return packageGetAction(client, prefix, ckanPackage).then(
     async (action: string) => {
       if (action === 'nothing') {
-        return Promise.resolve();
+        return Promise.resolve({
+          id: ckanPackage.result.id,
+          status: 'nothing',
+        });
       } else {
         ckanPackage.result.ckan_status = 'new';
         if (action === 'update') {
@@ -69,7 +132,12 @@ export const processPackage = (
 
         return Promise.all(
           inserts.map(insert => insert(client, prefix, ckanPackage))
-        ).then(() => Promise.resolve());
+        ).then(() =>
+          Promise.resolve({
+            id: ckanPackage.result.id,
+            status: ckanPackage.result.ckan_status || 'new',
+          })
+        );
       }
     }
   );
@@ -472,7 +540,7 @@ export const dropMasterTable = (client: Client): Promise<void> => {
 export const getInstance = (
   client: Client,
   identifier: string | number
-): Promise<{id: number; prefix: string; domain: string; version: number}> => {
+): Promise<CkanInstance> => {
   return client
     .query(
       `SELECT id, prefix, domain, version FROM ${definition_master_table} WHERE ${

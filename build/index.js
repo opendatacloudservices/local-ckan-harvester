@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handlePackages = exports.handleInstance = void 0;
 const index_1 = require("./ckan/index");
 const index_2 = require("./postgres/index");
 const dotenv = require("dotenv");
@@ -19,28 +18,6 @@ const client = new pg_1.Client({
     port: parseInt(process.env.PGPORT || '5432'),
 });
 client.connect();
-exports.handleInstance = async (client, req, res, next) => {
-    return index_2.getInstance(client, req.params.identifier)
-        .then(ckanInstance => {
-        next(ckanInstance);
-    })
-        .catch(err => {
-        if (err.message === 'Instance not found.') {
-            res.status(404).json({ message: 'Instance not found' });
-        }
-        else {
-            res.status(500).json({ error: err.message });
-            throw err;
-        }
-    });
-};
-exports.handlePackages = async (list, ckanInstance) => {
-    for (let i = 0; i < list.result.length; i += 1) {
-        await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
-            return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
-        });
-    }
-};
 /**
  * @swagger
  *
@@ -75,8 +52,8 @@ exports.handlePackages = async (list, ckanInstance) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/:identifier', (req, res) => {
-    exports.handleInstance(client, req, res, ckanInstance => {
-        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => exports.handlePackages(list, ckanInstance));
+    index_2.handleInstance(client, req, res, ckanInstance => {
+        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => index_2.handlePackages(client, list, ckanInstance));
     }).catch(err => {
         res.status(500).json({ error: err.message });
         throw err;
@@ -103,7 +80,7 @@ local_microservice_1.api.get('/process_all', (req, res) => {
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
             return index_2.getInstance(client, identifier).then(ckanInstance => {
-                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => exports.handlePackages(list, ckanInstance));
+                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => index_2.handlePackages(client, list, ckanInstance));
             });
         }));
     })
@@ -192,7 +169,7 @@ local_microservice_1.api.get('/init/:domain/:prefix', (req, res) => {
  *         description: Reset completed
  */
 local_microservice_1.api.get('/reset/:identifier', (req, res) => {
-    exports.handleInstance(client, req, res, ckanInstance => {
+    index_2.handleInstance(client, req, res, ckanInstance => {
         return index_2.resetTables(client, ckanInstance.prefix).then(() => {
             res.status(200).json({ message: 'Reset completed' });
         });
@@ -219,7 +196,7 @@ local_microservice_1.api.get('/reset/:identifier', (req, res) => {
  *         description: Drop completed
  */
 local_microservice_1.api.get('/drop/:identifier', (req, res) => {
-    exports.handleInstance(client, req, res, ckanInstance => {
+    index_2.handleInstance(client, req, res, ckanInstance => {
         return index_2.dropTables(client, ckanInstance.prefix).then(() => {
             res.status(200).json({ message: 'Drop completed' });
         });
