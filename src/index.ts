@@ -154,7 +154,6 @@ api.get('/init/:domain/:prefix', (req, res) => {
     res.status(500).json({error: err.message});
     throw err;
   } else {
-    // TODO: Check that prefix is not yet used
     initTables(
       client,
       req.params.prefix,

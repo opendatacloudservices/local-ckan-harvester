@@ -50,10 +50,12 @@ export const processPackage = (
       if (action === 'nothing') {
         return Promise.resolve();
       } else {
+        ckanPackage.result.ckan_status = 'new';
         if (action === 'update') {
           // we are not keeping a detailed version history, as the meta data is unreliable anyway
           // if something changes, we purge the old data and add the new
           await removePackage(client, prefix, ckanPackage.result.id);
+          ckanPackage.result.ckan_status = 'updated';
         }
 
         const inserts = [
@@ -198,7 +200,7 @@ export const insertPackage = (
     id, name, title, revision_id, owner_org, notes, url, isopen, 
     license_id, type, creator_user_id, version, state, author_email, 
     author, metadata_modified, metadata_created, maintainer_email, 
-    private, maintainer, license_title, organization_id) VALUES (
+    private, maintainer, license_title, organization_id, ckan_status) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
     $15, $16, $17, $18, $19, $20, $21, $22)`,
       [
@@ -224,6 +226,7 @@ export const insertPackage = (
         r.maintainer,
         r.license_title,
         r.organization.id,
+        r.ckan_status || 'new',
       ]
     )
     .then(() => {

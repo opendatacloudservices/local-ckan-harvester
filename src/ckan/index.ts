@@ -77,6 +77,7 @@ export interface CkanPackage {
       state: string;
       vocabulary_id: string;
     }[];
+    ckan_status?: string;
   };
 }
 
