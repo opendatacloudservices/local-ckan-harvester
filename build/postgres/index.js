@@ -365,7 +365,6 @@ exports.getInstance = (client, identifier) => {
         }
     });
 };
-// TODO: add summary logs after runs
 exports.tablesExist = (client, prefix, tables) => {
     return client
         .query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")

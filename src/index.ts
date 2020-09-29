@@ -59,6 +59,21 @@ export const handleInstance = async (
     });
 };
 
+export const handlePackages = async (
+  list: CkanPackageList,
+  ckanInstance: {domain: string; version: number; prefix: string}
+) => {
+  for (let i = 0; i < list.result.length; i += 1) {
+    await packageShow(
+      ckanInstance.domain,
+      ckanInstance.version,
+      list.result[i]
+    ).then(async (ckanPackage: CkanPackage) => {
+      return processPackage(client, ckanInstance.prefix, ckanPackage);
+    });
+  }
+};
+
 /**
  * @swagger
  *
@@ -95,19 +110,8 @@ export const handleInstance = async (
  */
 api.get('/process/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
-    return packageList(ckanInstance.domain, ckanInstance.version).then(
-      async (list: CkanPackageList) => {
-        for (let i = 0; i < list.result.length; i += 1) {
-          await packageShow(
-            ckanInstance.domain,
-            ckanInstance.version,
-            list.result[i]
-          ).then(async (ckanPackage: CkanPackage) => {
-            return processPackage(client, ckanInstance.prefix, ckanPackage);
-          });
-        }
-        res.status(200).json({message: 'Process completed'});
-      }
+    return packageList(ckanInstance.domain, ckanInstance.version).then(list =>
+      handlePackages(list, ckanInstance)
     );
   }).catch(err => {
     res.status(500).json({error: err.message});
@@ -137,23 +141,10 @@ api.get('/process_all', (req, res) => {
       return Promise.all(
         instanceIds.map(identifier => {
           return getInstance(client, identifier).then(ckanInstance => {
-            return packageList(ckanInstance.domain, ckanInstance.version).then(
-              async (list: CkanPackageList) => {
-                for (let i = 0; i < list.result.length; i += 1) {
-                  await packageShow(
-                    ckanInstance.domain,
-                    ckanInstance.version,
-                    list.result[i]
-                  ).then(async (ckanPackage: CkanPackage) => {
-                    return processPackage(
-                      client,
-                      ckanInstance.prefix,
-                      ckanPackage
-                    );
-                  });
-                }
-              }
-            );
+            return packageList(
+              ckanInstance.domain,
+              ckanInstance.version
+            ).then(list => handlePackages(list, ckanInstance));
           });
         })
       );

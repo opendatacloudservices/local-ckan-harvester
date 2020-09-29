@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleInstance = void 0;
+exports.handlePackages = exports.handleInstance = void 0;
 const index_1 = require("./ckan/index");
 const index_2 = require("./postgres/index");
 const dotenv = require("dotenv");
@@ -33,6 +33,13 @@ exports.handleInstance = async (client, req, res, next) => {
             throw err;
         }
     });
+};
+exports.handlePackages = async (list, ckanInstance) => {
+    for (let i = 0; i < list.result.length; i += 1) {
+        await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
+            return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
+        });
+    }
 };
 /**
  * @swagger
@@ -69,14 +76,7 @@ exports.handleInstance = async (client, req, res, next) => {
  */
 local_microservice_1.api.get('/process/:identifier', (req, res) => {
     exports.handleInstance(client, req, res, ckanInstance => {
-        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(async (list) => {
-            for (let i = 0; i < list.result.length; i += 1) {
-                await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
-                    return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
-                });
-            }
-            res.status(200).json({ message: 'Process completed' });
-        });
+        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => exports.handlePackages(list, ckanInstance));
     }).catch(err => {
         res.status(500).json({ error: err.message });
         throw err;
@@ -103,13 +103,7 @@ local_microservice_1.api.get('/process_all', (req, res) => {
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
             return index_2.getInstance(client, identifier).then(ckanInstance => {
-                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(async (list) => {
-                    for (let i = 0; i < list.result.length; i += 1) {
-                        await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
-                            return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
-                        });
-                    }
-                });
+                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => exports.handlePackages(list, ckanInstance));
             });
         }));
     })

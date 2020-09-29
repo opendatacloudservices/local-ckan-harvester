@@ -494,8 +494,6 @@ export const getInstance = (
     });
 };
 
-// TODO: add summary logs after runs
-
 export const tablesExist = (
   client: Client,
   prefix: string,
