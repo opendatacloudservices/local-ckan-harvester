@@ -38,7 +38,12 @@ export const handleInstance = async (
   client: Client,
   req: Request,
   res: Response,
-  next: (ckanInstance: {id: number; domain: string; prefix: string, version: number}) => void
+  next: (ckanInstance: {
+    id: number;
+    domain: string;
+    prefix: string;
+    version: number;
+  }) => void
 ): Promise<void> => {
   return getInstance(client, req.params.identifier)
     .then(ckanInstance => {
@@ -90,19 +95,21 @@ export const handleInstance = async (
  */
 api.get('/process/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
-    return packageList(ckanInstance.domain, ckanInstance.version)
-      .then(async (list: CkanPackageList) => {
+    return packageList(ckanInstance.domain, ckanInstance.version).then(
+      async (list: CkanPackageList) => {
         for (let i = 0; i < list.result.length; i += 1) {
-          await packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(
-            async (ckanPackage: CkanPackage) => {
-              return processPackage(client, ckanInstance.prefix, ckanPackage);
-            }
-          );
+          await packageShow(
+            ckanInstance.domain,
+            ckanInstance.version,
+            list.result[i]
+          ).then(async (ckanPackage: CkanPackage) => {
+            return processPackage(client, ckanInstance.prefix, ckanPackage);
+          });
         }
         res.status(200).json({message: 'Process completed'});
-      });
-  })
-  .catch(err => {
+      }
+    );
+  }).catch(err => {
     res.status(500).json({error: err.message});
     throw err;
   });
@@ -126,24 +133,33 @@ api.get('/process/:identifier', (req, res) => {
  */
 api.get('/process_all', (req, res) => {
   allInstances(client)
-    .then((instanceIds) => {
+    .then(instanceIds => {
       return Promise.all(
-        instanceIds.map((identifier) => {
-          return getInstance(client, identifier)
-            .then((ckanInstance) => {
-              return packageList(ckanInstance.domain, ckanInstance.version)
-                .then(async (list: CkanPackageList) => {
-                  for (let i = 0; i < list.result.length; i += 1) {
-                    await packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(
-                      async (ckanPackage: CkanPackage) => {
-                        return processPackage(client, ckanInstance.prefix, ckanPackage);
-                      }
+        instanceIds.map(identifier => {
+          return getInstance(client, identifier).then(ckanInstance => {
+            return packageList(ckanInstance.domain, ckanInstance.version).then(
+              async (list: CkanPackageList) => {
+                for (let i = 0; i < list.result.length; i += 1) {
+                  await packageShow(
+                    ckanInstance.domain,
+                    ckanInstance.version,
+                    list.result[i]
+                  ).then(async (ckanPackage: CkanPackage) => {
+                    return processPackage(
+                      client,
+                      ckanInstance.prefix,
+                      ckanPackage
                     );
-                  }
-                });
-            });
+                  });
+                }
+              }
+            );
+          });
         })
       );
+    })
+    .then(() => {
+      res.status(200).json({message: 'Processing completed'});
     })
     .catch(err => {
       res.status(500).json({error: err.message});
@@ -192,8 +208,14 @@ api.get('/process_all', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/init/:domain/:prefix', (req, res) => {
-  if (!('prefix' in req.params) || !('domain' in req.params) || !('version' in req.params)) {
-    const err = Error('Missing parameter: prefix: string, domain: string and version: number are required parameters!');
+  if (
+    !('prefix' in req.params) ||
+    !('domain' in req.params) ||
+    !('version' in req.params)
+  ) {
+    const err = Error(
+      'Missing parameter: prefix: string, domain: string and version: number are required parameters!'
+    );
     res.status(500).json({error: err.message});
     throw err;
   } else {
@@ -233,12 +255,10 @@ api.get('/init/:domain/:prefix', (req, res) => {
  */
 api.get('/reset/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
-    return resetTables(client, ckanInstance.prefix)
-      .then(() => {
-        res.status(200).json({message: 'Reset completed'});
-      });
-  })
-  .catch(err => {
+    return resetTables(client, ckanInstance.prefix).then(() => {
+      res.status(200).json({message: 'Reset completed'});
+    });
+  }).catch(err => {
     res.status(500).json({error: err.message});
     throw err;
   });
@@ -263,12 +283,10 @@ api.get('/reset/:identifier', (req, res) => {
  */
 api.get('/drop/:identifier', (req, res) => {
   handleInstance(client, req, res, ckanInstance => {
-    return dropTables(client, ckanInstance.prefix)
-      .then(() => {
-        res.status(200).json({message: 'Drop completed'});
-      });
-  })
-  .catch(err => {
+    return dropTables(client, ckanInstance.prefix).then(() => {
+      res.status(200).json({message: 'Drop completed'});
+    });
+  }).catch(err => {
     res.status(500).json({error: err.message});
     throw err;
   });

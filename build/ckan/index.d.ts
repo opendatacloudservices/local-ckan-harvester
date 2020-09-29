@@ -1,7 +1,7 @@
 export interface CkanPackageList {
     result: string[];
 }
-export declare const packageList: (domain: string) => Promise<CkanPackageList>;
+export declare const packageList: (domain: string, version: number) => Promise<CkanPackageList>;
 export interface CkanPackage {
     result: {
         id: string;
@@ -57,6 +57,7 @@ export interface CkanPackage {
             state: string;
             vocabulary_id: string;
         }[];
+        ckan_status?: string;
     };
 }
 export declare type CkanResource = {
@@ -88,4 +89,4 @@ export declare type CkanResource = {
     access_url: string;
     resource_type: string;
 };
-export declare const packageShow: (domain: string, id: string) => Promise<CkanPackage>;
+export declare const packageShow: (domain: string, version: number, id: string) => Promise<CkanPackage>;

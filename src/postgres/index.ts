@@ -472,7 +472,7 @@ export const dropMasterTable = (client: Client): Promise<void> => {
 export const getInstance = (
   client: Client,
   identifier: string | number
-): Promise<{id: number; prefix: string; domain: string, version: number}> => {
+): Promise<{id: number; prefix: string; domain: string; version: number}> => {
   return client
     .query(
       `SELECT id, prefix, domain, version FROM ${definition_master_table} WHERE ${
@@ -548,7 +548,13 @@ export const initTables = (
         (prefix, domain, version, date_added, filter)
         VALUES
         ($1, $2, $3, $4, $5);`,
-        [prefix, domain, version, moment().format('YYYY-MM-DD hh:mm:ss'), filter]
+        [
+          prefix,
+          domain,
+          version,
+          moment().format('YYYY-MM-DD hh:mm:ss'),
+          filter,
+        ]
       )
     )
     .then(() =>
@@ -783,10 +789,9 @@ export const dropTables = (client: Client, prefix: string): Promise<void> => {
 };
 
 export const allInstances = (client: Client): Promise<number[]> => {
-  return client.query(
-    `SELECT id FROM ${definition_master_table};`,
-    []
-  ).then((result) => {
-    return result.rows;
-  });
-}
+  return client
+    .query(`SELECT id FROM ${definition_master_table};`, [])
+    .then(result => {
+      return result.rows;
+    });
+};

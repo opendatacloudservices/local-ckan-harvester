@@ -14,7 +14,10 @@ const handleFetch = (res: Response): Promise<any> => {
   }
 };
 
-export const packageList = (domain: string, version: number): Promise<CkanPackageList> => {
+export const packageList = (
+  domain: string,
+  version: number
+): Promise<CkanPackageList> => {
   if (version === 1) {
     return fetch(`https://${domain}/rest/dataset`).then(handleFetch);
   } else {
@@ -119,6 +122,8 @@ export const packageShow = (
   if (version === 1) {
     return fetch(`https://${domain}/rest/dataset/${id}`).then(handleFetch);
   } else {
-    return fetch(`https://${domain}/action/package_show?id=${id}`).then(handleFetch);
+    return fetch(`https://${domain}/action/package_show?id=${id}`).then(
+      handleFetch
+    );
   }
 };

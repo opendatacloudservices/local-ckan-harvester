@@ -4,4 +4,5 @@ export declare const handleInstance: (client: Client, req: Request, res: Respons
     id: number;
     domain: string;
     prefix: string;
+    version: number;
 }) => void) => Promise<void>;

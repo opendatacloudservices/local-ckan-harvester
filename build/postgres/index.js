@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
+exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
 const moment = require("moment");
 exports.definition_tables = [
     'ref_groups_packages',
@@ -41,10 +41,12 @@ exports.processPackage = (client, prefix, ckanPackage) => {
             return Promise.resolve();
         }
         else {
+            ckanPackage.result.ckan_status = 'new';
             if (action === 'update') {
                 // we are not keeping a detailed version history, as the meta data is unreliable anyway
                 // if something changes, we purge the old data and add the new
                 await exports.removePackage(client, prefix, ckanPackage.result.id);
+                ckanPackage.result.ckan_status = 'updated';
             }
             const inserts = [
                 exports.packageUpsertOrganization,
@@ -142,7 +144,7 @@ exports.insertPackage = (client, prefix, ckanPackage) => {
     id, name, title, revision_id, owner_org, notes, url, isopen, 
     license_id, type, creator_user_id, version, state, author_email, 
     author, metadata_modified, metadata_created, maintainer_email, 
-    private, maintainer, license_title, organization_id) VALUES (
+    private, maintainer, license_title, organization_id, ckan_status) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 
     $15, $16, $17, $18, $19, $20, $21, $22)`, [
         r.id,
@@ -167,6 +169,7 @@ exports.insertPackage = (client, prefix, ckanPackage) => {
         r.maintainer,
         r.license_title,
         r.organization.id,
+        r.ckan_status || 'new',
     ])
         .then(() => {
         return Promise.resolve();
@@ -323,6 +326,7 @@ exports.initMasterTable = (client) => {
       prefix text NOT NULL,
       domain text NOT NULL,
       filter text,
+      version integer NOT NULL,
       date_added timestamp without time zone,
       date_updated timestamp without time zone,
       CONSTRAINT ${exports.definition_master_table}_pkey PRIMARY KEY (id)
@@ -346,13 +350,14 @@ exports.dropMasterTable = (client) => {
 };
 exports.getInstance = (client, identifier) => {
     return client
-        .query(`SELECT id, prefix, domain FROM ${exports.definition_master_table} WHERE ${typeof identifier === 'number' ? 'id' : 'prefix'} = $1`, [identifier])
+        .query(`SELECT id, prefix, domain, version FROM ${exports.definition_master_table} WHERE ${typeof identifier === 'number' ? 'id' : 'prefix'} = $1`, [identifier])
         .then(result => {
         if (result.rows.length === 1) {
             return Promise.resolve({
                 id: result.rows[0].id,
                 prefix: result.rows[0].prefix,
                 domain: result.rows[0].domain,
+                version: result.rows[0].version,
             });
         }
         else {
@@ -381,7 +386,7 @@ exports.tablesExist = (client, prefix, tables) => {
         }
     });
 };
-exports.initTables = (client, prefix, domain, filter) => {
+exports.initTables = (client, prefix, domain, version, filter) => {
     return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (exists) {
@@ -390,9 +395,15 @@ exports.initTables = (client, prefix, domain, filter) => {
         return Promise.resolve();
     })
         .then(() => client.query(`INSERT INTO ${exports.definition_master_table} 
-        (prefix, domain, date_added, filter)
+        (prefix, domain, version, date_added, filter)
         VALUES
-        ($1, $2, $3, $4);`, [prefix, domain, moment().format('YYYY-MM-DD hh:mm:ss'), filter]))
+        ($1, $2, $3, $4, $5);`, [
+        prefix,
+        domain,
+        version,
+        moment().format('YYYY-MM-DD hh:mm:ss'),
+        filter,
+    ]))
         .then(() => client.query(`CREATE TABLE ${prefix}_groups (
         id character varying(4) NOT NULL,
         name text,
@@ -569,6 +580,13 @@ exports.dropTables = (client, prefix) => {
     })
         .then(() => {
         return Promise.resolve();
+    });
+};
+exports.allInstances = (client) => {
+    return client
+        .query(`SELECT id FROM ${exports.definition_master_table};`, [])
+        .then(result => {
+        return result.rows;
     });
 };
 //# sourceMappingURL=index.js.map

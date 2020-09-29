@@ -11,11 +11,20 @@ const handleFetch = (res) => {
         return Promise.reject(Error(res.statusText || res.status.toString()));
     }
 };
-exports.packageList = (domain) => {
-    // TODO: Pagination
-    return node_fetch_1.default(`https://${domain}/api/3/action/package_list`).then(handleFetch);
+exports.packageList = (domain, version) => {
+    if (version === 1) {
+        return node_fetch_1.default(`https://${domain}/rest/dataset`).then(handleFetch);
+    }
+    else {
+        return node_fetch_1.default(`https://${domain}/action/package_list`).then(handleFetch);
+    }
 };
-exports.packageShow = (domain, id) => {
-    return node_fetch_1.default(`https://${domain}/api/3/action/package_show?id=${id}`).then(handleFetch);
+exports.packageShow = (domain, version, id) => {
+    if (version === 1) {
+        return node_fetch_1.default(`https://${domain}/rest/dataset/${id}`).then(handleFetch);
+    }
+    else {
+        return node_fetch_1.default(`https://${domain}/action/package_show?id=${id}`).then(handleFetch);
+    }
 };
 //# sourceMappingURL=index.js.map
