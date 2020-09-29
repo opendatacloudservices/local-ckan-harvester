@@ -5,6 +5,7 @@ import {
   CkanPackage,
 } from './ckan/index';
 import {
+  allInstances,
   processPackage,
   initTables,
   resetTables,
@@ -22,7 +23,6 @@ import {api, catchAll} from 'local-microservice';
 import {Response, Request} from 'express';
 
 // TODO: Error logging and process logging
-// TODO: Interface for handling all instances from database
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -106,6 +106,49 @@ api.get('/process/:identifier', (req, res) => {
     res.status(500).json({error: err.message});
     throw err;
   });
+});
+
+/**
+ * @swagger
+ *
+ * /process_all:
+ *   get:
+ *     operationId: getProcessAll
+ *     description: Start the processing of all ckan instance
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *     responses:
+ *       200:
+ *         description: processes initiated
+ *       500:
+ *         $ref: '#/components/responses/500'
+ */
+api.get('/process_all', (req, res) => {
+  allInstances(client)
+    .then((instanceIds) => {
+      return Promise.all(
+        instanceIds.map((identifier) => {
+          return getInstance(client, identifier)
+            .then((ckanInstance) => {
+              return packageList(ckanInstance.domain, ckanInstance.version)
+                .then(async (list: CkanPackageList) => {
+                  for (let i = 0; i < list.result.length; i += 1) {
+                    await packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(
+                      async (ckanPackage: CkanPackage) => {
+                        return processPackage(client, ckanInstance.prefix, ckanPackage);
+                      }
+                    );
+                  }
+                });
+            });
+        })
+      );
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      throw err;
+    });
 });
 
 /**
@@ -232,6 +275,5 @@ api.get('/drop/:identifier', (req, res) => {
 });
 
 // API to init/clear database
-// TODO: postgres backup function to RAID
 
 catchAll();

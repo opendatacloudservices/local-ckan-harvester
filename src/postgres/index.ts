@@ -781,3 +781,12 @@ export const dropTables = (client: Client, prefix: string): Promise<void> => {
       return Promise.resolve();
     });
 };
+
+export const allInstances = (client: Client): Promise<number[]> => {
+  return client.query(
+    `SELECT id FROM ${definition_master_table};`,
+    []
+  ).then((result) => {
+    return result.rows;
+  });
+}
