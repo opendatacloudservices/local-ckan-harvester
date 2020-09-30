@@ -7,6 +7,7 @@ import {
 } from '../ckan/index';
 import * as moment from 'moment';
 import {Response, Request} from 'express';
+import {logError, startSpan} from 'local-microservice';
 
 export const definition_tables = [
   'ref_groups_packages',
@@ -45,8 +46,8 @@ export const handleInstance = async (
         res.status(404).json({message: 'Instance not found'});
       } else {
         res.status(500).json({error: err.message});
-        throw err;
       }
+      logError(err);
     });
 };
 
@@ -57,6 +58,7 @@ export const handlePackages = async (
 ) => {
   const logs = [];
   for (let i = 0; i < list.result.length; i += 1) {
+    const span = startSpan({name: 'packageShow'});
     const log = await packageShow(
       ckanInstance.domain,
       ckanInstance.version,
@@ -66,6 +68,7 @@ export const handlePackages = async (
     });
 
     logs.push(log);
+    span.end();
   }
   await client.query(
     `INSERT INTO ${definition_logs_table}
@@ -820,7 +823,7 @@ export const resetTables = (client: Client, prefix: string): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
     .then(exists => {
       if (!exists) {
-        throw Error(
+        return Promise.reject(
           'Looks like the tables you are trying to reset, do not all exist.'
         );
       }
@@ -839,7 +842,7 @@ export const dropTables = (client: Client, prefix: string): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
     .then(exists => {
       if (!exists) {
-        throw Error(
+        return Promise.reject(
           'Looks like the tables you are trying to drop, do not all exist.'
         );
       }

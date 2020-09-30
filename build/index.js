@@ -8,7 +8,6 @@ const pg_1 = require("pg");
 // get environmental variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 const local_microservice_1 = require("local-microservice");
-// TODO: Error logging and process logging
 // connect to postgres (via env vars params)
 const client = new pg_1.Client({
     user: process.env.PGUSER,
@@ -52,11 +51,24 @@ client.connect();
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/:identifier', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/process/:identifier', type: 'get' });
     index_2.handleInstance(client, req, res, ckanInstance => {
-        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => index_2.handlePackages(client, list, ckanInstance));
-    }).catch(err => {
+        const span = local_microservice_1.startSpan({
+            name: 'packageList',
+            options: { childOf: trans.id() },
+        });
+        return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => {
+            span.end();
+            return index_2.handlePackages(client, list, ckanInstance);
+        });
+    })
+        .then(() => {
+        trans.end('success');
+    })
+        .catch(err => {
         res.status(500).json({ error: err.message });
-        throw err;
+        local_microservice_1.logError(err);
+        trans.end('error');
     });
 });
 /**
@@ -76,20 +88,30 @@ local_microservice_1.api.get('/process/:identifier', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process_all', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/process_all', type: 'get' });
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
             return index_2.getInstance(client, identifier).then(ckanInstance => {
-                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => index_2.handlePackages(client, list, ckanInstance));
+                const span = local_microservice_1.startSpan({
+                    name: 'packageList',
+                    options: { childOf: trans.id() },
+                });
+                return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => {
+                    span.end();
+                    return index_2.handlePackages(client, list, ckanInstance);
+                });
             });
         }));
     })
         .then(() => {
         res.status(200).json({ message: 'Processing completed' });
+        trans.end('success');
     })
         .catch(err => {
         res.status(500).json({ error: err.message });
-        throw err;
+        local_microservice_1.logError(err);
+        trans.end('error');
     });
 });
 /**
@@ -133,21 +155,25 @@ local_microservice_1.api.get('/process_all', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/init/:domain/:prefix', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/init/:domain/:prefix', type: 'get' });
     if (!('prefix' in req.params) ||
         !('domain' in req.params) ||
         !('version' in req.params)) {
         const err = Error('Missing parameter: prefix: string, domain: string and version: number are required parameters!');
         res.status(500).json({ error: err.message });
-        throw err;
+        trans.end('error');
+        local_microservice_1.logError(err);
     }
     else {
         index_2.initTables(client, req.params.prefix, req.params.domain, parseInt(req.params.version), req.route.query.filter || null)
             .then(() => {
             res.status(200).json({ message: 'Init completed' });
+            trans.end('success');
         })
             .catch(err => {
             res.status(500).json({ error: err.message });
-            throw err;
+            local_microservice_1.logError(err);
+            trans.end('error');
         });
     }
 });
@@ -169,13 +195,18 @@ local_microservice_1.api.get('/init/:domain/:prefix', (req, res) => {
  *         description: Reset completed
  */
 local_microservice_1.api.get('/reset/:identifier', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/reset/:identifier', type: 'get' });
     index_2.handleInstance(client, req, res, ckanInstance => {
-        return index_2.resetTables(client, ckanInstance.prefix).then(() => {
-            res.status(200).json({ message: 'Reset completed' });
-        });
-    }).catch(err => {
+        return index_2.resetTables(client, ckanInstance.prefix);
+    })
+        .then(() => {
+        res.status(200).json({ message: 'Reset completed' });
+        trans.end('success');
+    })
+        .catch(err => {
         res.status(500).json({ error: err.message });
-        throw err;
+        local_microservice_1.logError(err);
+        trans.end('error');
     });
 });
 /**
@@ -196,13 +227,18 @@ local_microservice_1.api.get('/reset/:identifier', (req, res) => {
  *         description: Drop completed
  */
 local_microservice_1.api.get('/drop/:identifier', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/drop/:identifier', type: 'get' });
     index_2.handleInstance(client, req, res, ckanInstance => {
-        return index_2.dropTables(client, ckanInstance.prefix).then(() => {
-            res.status(200).json({ message: 'Drop completed' });
-        });
-    }).catch(err => {
+        return index_2.dropTables(client, ckanInstance.prefix);
+    })
+        .then(() => {
+        res.status(200).json({ message: 'Drop completed' });
+        trans.end('success');
+    })
+        .catch(err => {
         res.status(500).json({ error: err.message });
-        throw err;
+        local_microservice_1.logError(err);
+        trans.end('error');
     });
 });
 // API to init/clear database

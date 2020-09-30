@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handlePackages = exports.handleInstance = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
 const index_1 = require("../ckan/index");
 const moment = require("moment");
+const local_microservice_1 = require("local-microservice");
 exports.definition_tables = [
     'ref_groups_packages',
     'ref_tags_packages',
@@ -27,17 +28,19 @@ exports.handleInstance = async (client, req, res, next) => {
         }
         else {
             res.status(500).json({ error: err.message });
-            throw err;
         }
+        local_microservice_1.logError(err);
     });
 };
 exports.handlePackages = async (client, list, ckanInstance) => {
     const logs = [];
     for (let i = 0; i < list.result.length; i += 1) {
+        const span = local_microservice_1.startSpan({ name: 'packageShow' });
         const log = await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
             return exports.processPackage(client, ckanInstance.prefix, ckanPackage);
         });
         logs.push(log);
+        span.end();
     }
     await client.query(`INSERT INTO ${exports.definition_logs_table}
       (code, label, message, attachment, date)
@@ -593,7 +596,7 @@ exports.resetTables = (client, prefix) => {
     return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
-            throw Error('Looks like the tables you are trying to reset, do not all exist.');
+            return Promise.reject('Looks like the tables you are trying to reset, do not all exist.');
         }
         return client.query(`TRUNCATE ${exports.definition_tables
             .map(name => `${prefix}_${name}`)
@@ -607,7 +610,7 @@ exports.dropTables = (client, prefix) => {
     return exports.tablesExist(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
-            throw Error('Looks like the tables you are trying to drop, do not all exist.');
+            return Promise.reject('Looks like the tables you are trying to drop, do not all exist.');
         }
         return Promise.all(exports.definition_tables.map((name) => {
             return client.query(`DROP TABLE ${prefix}_${name}`);

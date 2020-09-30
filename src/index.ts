@@ -15,9 +15,13 @@ import {Client} from 'pg';
 // get environmental variables
 dotenv.config({path: path.join(__dirname, '../.env')});
 
-import {api, catchAll} from 'local-microservice';
-
-// TODO: Error logging and process logging
+import {
+  api,
+  catchAll,
+  logError,
+  startTransaction,
+  startSpan,
+} from 'local-microservice';
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -64,14 +68,25 @@ client.connect();
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/:identifier', (req, res) => {
+  const trans = startTransaction({name: '/process/:identifier', type: 'get'});
   handleInstance(client, req, res, ckanInstance => {
-    return packageList(ckanInstance.domain, ckanInstance.version).then(list =>
-      handlePackages(client, list, ckanInstance)
-    );
-  }).catch(err => {
-    res.status(500).json({error: err.message});
-    throw err;
-  });
+    const span = startSpan({
+      name: 'packageList',
+      options: {childOf: trans.id()},
+    });
+    return packageList(ckanInstance.domain, ckanInstance.version).then(list => {
+      span.end();
+      return handlePackages(client, list, ckanInstance);
+    });
+  })
+    .then(() => {
+      trans.end('success');
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      logError(err);
+      trans.end('error');
+    });
 });
 
 /**
@@ -91,25 +106,34 @@ api.get('/process/:identifier', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process_all', (req, res) => {
+  const trans = startTransaction({name: '/process_all', type: 'get'});
   allInstances(client)
     .then(instanceIds => {
       return Promise.all(
         instanceIds.map(identifier => {
           return getInstance(client, identifier).then(ckanInstance => {
-            return packageList(
-              ckanInstance.domain,
-              ckanInstance.version
-            ).then(list => handlePackages(client, list, ckanInstance));
+            const span = startSpan({
+              name: 'packageList',
+              options: {childOf: trans.id()},
+            });
+            return packageList(ckanInstance.domain, ckanInstance.version).then(
+              list => {
+                span.end();
+                return handlePackages(client, list, ckanInstance);
+              }
+            );
           });
         })
       );
     })
     .then(() => {
       res.status(200).json({message: 'Processing completed'});
+      trans.end('success');
     })
     .catch(err => {
       res.status(500).json({error: err.message});
-      throw err;
+      logError(err);
+      trans.end('error');
     });
 });
 
@@ -154,6 +178,7 @@ api.get('/process_all', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/init/:domain/:prefix', (req, res) => {
+  const trans = startTransaction({name: '/init/:domain/:prefix', type: 'get'});
   if (
     !('prefix' in req.params) ||
     !('domain' in req.params) ||
@@ -163,7 +188,8 @@ api.get('/init/:domain/:prefix', (req, res) => {
       'Missing parameter: prefix: string, domain: string and version: number are required parameters!'
     );
     res.status(500).json({error: err.message});
-    throw err;
+    trans.end('error');
+    logError(err);
   } else {
     initTables(
       client,
@@ -174,10 +200,12 @@ api.get('/init/:domain/:prefix', (req, res) => {
     )
       .then(() => {
         res.status(200).json({message: 'Init completed'});
+        trans.end('success');
       })
       .catch(err => {
         res.status(500).json({error: err.message});
-        throw err;
+        logError(err);
+        trans.end('error');
       });
   }
 });
@@ -200,14 +228,19 @@ api.get('/init/:domain/:prefix', (req, res) => {
  *         description: Reset completed
  */
 api.get('/reset/:identifier', (req, res) => {
+  const trans = startTransaction({name: '/reset/:identifier', type: 'get'});
   handleInstance(client, req, res, ckanInstance => {
-    return resetTables(client, ckanInstance.prefix).then(() => {
+    return resetTables(client, ckanInstance.prefix);
+  })
+    .then(() => {
       res.status(200).json({message: 'Reset completed'});
+      trans.end('success');
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      logError(err);
+      trans.end('error');
     });
-  }).catch(err => {
-    res.status(500).json({error: err.message});
-    throw err;
-  });
 });
 
 /**
@@ -228,14 +261,19 @@ api.get('/reset/:identifier', (req, res) => {
  *         description: Drop completed
  */
 api.get('/drop/:identifier', (req, res) => {
+  const trans = startTransaction({name: '/drop/:identifier', type: 'get'});
   handleInstance(client, req, res, ckanInstance => {
-    return dropTables(client, ckanInstance.prefix).then(() => {
+    return dropTables(client, ckanInstance.prefix);
+  })
+    .then(() => {
       res.status(200).json({message: 'Drop completed'});
+      trans.end('success');
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      logError(err);
+      trans.end('error');
     });
-  }).catch(err => {
-    res.status(500).json({error: err.message});
-    throw err;
-  });
 });
 
 // API to init/clear database

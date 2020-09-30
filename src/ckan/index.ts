@@ -1,6 +1,5 @@
 import fetch from 'node-fetch';
 import {Response} from 'node-fetch';
-
 export interface CkanPackageList {
   result: string[];
 }
