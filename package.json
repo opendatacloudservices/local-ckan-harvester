@@ -39,6 +39,7 @@
     "dotenv": "^8.2.0",
     "express-queue": "0.0.12",
     "local-microservice": "file:../local-microservice",
+    "local-pm2-config": "file:../local-pm2-config",
     "moment": "^2.27.0",
     "node-fetch": "^2.6.1",
     "path": "^0.12.7",

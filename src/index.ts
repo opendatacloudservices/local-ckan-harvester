@@ -15,7 +15,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import {Client} from 'pg';
 import fetch from 'node-fetch';
-import queue from 'express-queue';
+import * as pm2 from 'local-pm2-config';
 
 // get environmental variables
 dotenv.config({path: path.join(__dirname, '../.env')});
@@ -28,8 +28,6 @@ import {
   startSpan,
 } from 'local-microservice';
 
-api.use(queue({activeLimit: 3, queuedLimit: -1}));
-
 // connect to postgres (via env vars params)
 const client = new Client({
   user: process.env.PGUSER,
@@ -39,6 +37,14 @@ const client = new Client({
   port: parseInt(process.env.PGPORT || '5432'),
 });
 client.connect();
+
+// number of parallel processes
+let processCount = 1;
+pm2.apps.forEach(app => {
+  if (app.name === 'local-ckan-harvester') {
+    processCount = app.max;
+  }
+});
 
 /**
  * @swagger
@@ -88,17 +94,26 @@ api.get('/process/instance/:identifier', (req, res) => {
       return packageList(ckanInstance.domain, ckanInstance.version).then(
         async list => {
           span.end();
-          for (let i = 0; i < list.result.length; i += 1) {
-            await fetch(
-              `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[i]}`
-            );
+          res.status(200).json({message: 'Processing completed'});
+          // number of simulations calls per process
+          const parallelCount = 2 * processCount;
+          for (let i = 0; i < list.result.length; i += parallelCount) {
+            console.log('process/instance/fetch:', list.result.length, i);
+            const fetchs = [];
+            for (let j = i; j < i + parallelCount; j += 1) {
+              fetchs.push(
+                fetch(
+                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
+                )
+              );
+            }
+            await Promise.all(fetchs);
           }
           return Promise.resolve();
         }
       );
     })
     .then(() => {
-      res.status(200).json({message: 'Processing completed'});
       trans.end('success');
     })
     .catch(err => {
@@ -131,9 +146,6 @@ api.get('/process/instance/:identifier', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/package/:identifier/:id', (req, res) => {
-  console.log('added');
-  res.status(200).json({message: 'Processing added'});
-
   const trans = startTransaction({
     name: '/process/package/:identifier/:id',
     type: 'get',
@@ -171,11 +183,11 @@ api.get('/process/package/:identifier/:id', (req, res) => {
         });
     })
     .then(() => {
+      res.status(200).json({message: 'Processing completed'});
       trans.end('success');
     })
     .catch(err => {
-      // handleInstanceError(res, req, err);
-      logError(err);
+      handleInstanceError(res, req, err);
       trans.end('error');
     });
 });
