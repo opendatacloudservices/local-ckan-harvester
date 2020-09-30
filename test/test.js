@@ -1,10 +1,11 @@
 const dotenv = require('dotenv');
 const pg = require('pg');
 const {packageList, packageShow, handleFetch} = require('../build/ckan/index');
-const {handleInstance, closeServer} = require('../build/index');
+const {closeServer} = require('../build/index');
 const {
   definition_master_table,
   definition_tables,
+  handleInstance,
   initMasterTable,
   initTables,
   getInstance,
@@ -98,8 +99,8 @@ test('tablesExist:false', async () => {
     });
 });
 
-test('initTables (govdata, ckan.govdata.de)', async () => {
-  await initTables(client, 'govdata', 'ckan.govdata.de', null)
+test('initTables (govdata, ckan.govdata.de, 3)', async () => {
+  await initTables(client, 'govdata', 'ckan.govdata.de/api/3', 3, null)
     .then(() => client.query(`SELECT 
         tablename
       FROM
@@ -131,7 +132,7 @@ test('getInstance (govdata)', async () => {
   const ckanMatchInstance = {
     id: 1,
     prefix: 'govdata',
-    domain: 'ckan.govdata.de'
+    domain: 'ckan.govdata.de/api/3'
   };
 
   await getInstance(client, 'govdata')
@@ -149,7 +150,7 @@ test('handleInstance (govdata)', async () => {
   const ckanMatchInstance = {
     id: 1,
     prefix: 'govdata',
-    domain: 'ckan.govdata.de'
+    domain: 'ckan.govdata.de/api/3'
   };
 
   const res = {};
@@ -227,7 +228,7 @@ test('handleFetch', async () => {
 })
 
 test('packageList(using ckan.govdata.de)', async () => {
-  await packageList('ckan.govdata.de').then(ckanPackageList => {
+  await packageList('ckan.govdata.de/api/3', 3).then(ckanPackageList => {
     expect(ckanPackageList).toHaveProperty('result');
     expect(ckanPackageList.result.length).toBeGreaterThan(0);
     expect(typeof ckanPackageList.result[0]).toBe('string');
@@ -235,9 +236,9 @@ test('packageList(using ckan.govdata.de)', async () => {
 });
 
 test('packageShow (using ckan.govdata.de)', async () => {
-  await packageList('ckan.govdata.de')
+  await packageList('ckan.govdata.de/api/3', 3)
     .then(ckanPackageList =>
-      packageShow('ckan.govdata.de', ckanPackageList.result[0])
+      packageShow('ckan.govdata.de/api/3', 3, ckanPackageList.result[0])
     )
     .then(ckanPackage => {
       expect(ckanPackage).toHaveProperty('result');
