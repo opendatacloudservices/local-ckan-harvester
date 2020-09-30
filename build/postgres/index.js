@@ -1,8 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handlePackages = exports.handleInstance = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
-const index_1 = require("../ckan/index");
-const moment = require("moment");
+exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handleInstanceError = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
+const moment_1 = __importDefault(require("moment"));
 const local_microservice_1 = require("local-microservice");
 exports.definition_tables = [
     'ref_groups_packages',
@@ -17,36 +19,17 @@ exports.definition_tables = [
 ];
 exports.definition_master_table = 'ckan_master';
 exports.definition_logs_table = 'ckan_logs';
-exports.handleInstance = async (client, req, res, next) => {
-    return exports.getInstance(client, req.params.identifier)
-        .then(ckanInstance => {
-        next(ckanInstance);
-    })
-        .catch(err => {
-        if (err.message === 'Instance not found.') {
-            res.status(404).json({ message: 'Instance not found' });
-        }
-        else {
-            res.status(500).json({ error: err.message });
-        }
-        local_microservice_1.logError(err);
-    });
-};
-exports.handlePackages = async (client, list, ckanInstance) => {
-    const logs = [];
-    for (let i = 0; i < list.result.length; i += 1) {
-        const span = local_microservice_1.startSpan({ name: 'packageShow' });
-        const log = await index_1.packageShow(ckanInstance.domain, ckanInstance.version, list.result[i]).then(async (ckanPackage) => {
-            return exports.processPackage(client, ckanInstance.prefix, ckanPackage);
-        });
-        logs.push(log);
-        span.end();
+exports.handleInstanceError = (res, req, err) => {
+    if (err.message === 'Instance not found.') {
+        res.status(404).json({ message: err.message });
     }
-    await client.query(`INSERT INTO ${exports.definition_logs_table}
-      (code, label, message, attachment, date)
-    VALUES
-      ($1, $2, $3, $4, CURRENT_TIMESTAMP());
-    `, ['handlePackages', ckanInstance.id, 'success', JSON.stringify(logs)]);
+    else {
+        res.status(500).json({ error: err.message });
+    }
+    local_microservice_1.logError({
+        message: err.message,
+        params: [req.params.identifier],
+    });
 };
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
@@ -372,10 +355,10 @@ exports.initMasterTable = (client) => {
     );`)
         .then(() => client.query(`CREATE TABLE ${exports.definition_logs_table} (
       id SERIAL,
-      code text,
-      label text,
-      message text,
-      attachment text,
+      instance integer,
+      process text,
+      package text,
+      status text,
       date timestamp without time zone,
       CONSTRAINT ${exports.definition_logs_table}_pkey PRIMARY KEY (id)
     );`))
@@ -439,7 +422,7 @@ exports.initTables = (client, prefix, domain, version, filter) => {
         prefix,
         domain,
         version,
-        moment().format('YYYY-MM-DD hh:mm:ss'),
+        moment_1.default().format('YYYY-MM-DD hh:mm:ss'),
         filter,
     ]))
         .then(() => client.query(`CREATE TABLE ${prefix}_groups (

@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import { CkanPackage, CkanPackageList } from '../ckan/index';
+import { CkanPackage } from '../ckan/index';
 import { Response, Request } from 'express';
 export declare const definition_tables: string[];
 export declare const definition_master_table = "ckan_master";
@@ -10,8 +10,7 @@ export declare type CkanInstance = {
     prefix: string;
     version: number;
 };
-export declare const handleInstance: (client: Client, req: Request, res: Response, next: (ckanInstance: CkanInstance) => void) => Promise<void>;
-export declare const handlePackages: (client: Client, list: CkanPackageList, ckanInstance: CkanInstance) => Promise<void>;
+export declare const handleInstanceError: (res: Response, req: Request, err: Error) => void;
 export declare const packageGetAction: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<string>;
 export declare const processPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<{
     id: string;

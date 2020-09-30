@@ -1,13 +1,8 @@
 import {Client, QueryResult} from 'pg';
-import {
-  CkanPackage,
-  CkanResource,
-  CkanPackageList,
-  packageShow,
-} from '../ckan/index';
-import * as moment from 'moment';
+import {CkanPackage, CkanResource} from '../ckan/index';
+import moment from 'moment';
 import {Response, Request} from 'express';
-import {logError, startSpan} from 'local-microservice';
+import {logError} from 'local-microservice';
 
 export const definition_tables = [
   'ref_groups_packages',
@@ -31,53 +26,20 @@ export type CkanInstance = {
   version: number;
 };
 
-export const handleInstance = async (
-  client: Client,
-  req: Request,
+export const handleInstanceError = (
   res: Response,
-  next: (ckanInstance: CkanInstance) => void
-): Promise<void> => {
-  return getInstance(client, req.params.identifier)
-    .then(ckanInstance => {
-      next(ckanInstance);
-    })
-    .catch(err => {
-      if (err.message === 'Instance not found.') {
-        res.status(404).json({message: 'Instance not found'});
-      } else {
-        res.status(500).json({error: err.message});
-      }
-      logError(err);
-    });
-};
-
-export const handlePackages = async (
-  client: Client,
-  list: CkanPackageList,
-  ckanInstance: CkanInstance
+  req: Request,
+  err: Error
 ) => {
-  const logs = [];
-  for (let i = 0; i < list.result.length; i += 1) {
-    const span = startSpan({name: 'packageShow'});
-    const log = await packageShow(
-      ckanInstance.domain,
-      ckanInstance.version,
-      list.result[i]
-    ).then(async (ckanPackage: CkanPackage) => {
-      return processPackage(client, ckanInstance.prefix, ckanPackage);
-    });
-
-    logs.push(log);
-    span.end();
+  if (err.message === 'Instance not found.') {
+    res.status(404).json({message: err.message});
+  } else {
+    res.status(500).json({error: err.message});
   }
-  await client.query(
-    `INSERT INTO ${definition_logs_table}
-      (code, label, message, attachment, date)
-    VALUES
-      ($1, $2, $3, $4, CURRENT_TIMESTAMP());
-    `,
-    ['handlePackages', ckanInstance.id, 'success', JSON.stringify(logs)]
-  );
+  logError({
+    message: err.message,
+    params: [req.params.identifier],
+  });
 };
 
 export const packageGetAction = (
@@ -522,10 +484,10 @@ export const initMasterTable = (client: Client): Promise<void> => {
     .then(() =>
       client.query(`CREATE TABLE ${definition_logs_table} (
       id SERIAL,
-      code text,
-      label text,
-      message text,
-      attachment text,
+      instance integer,
+      process text,
+      package text,
+      status text,
       date timestamp without time zone,
       CONSTRAINT ${definition_logs_table}_pkey PRIMARY KEY (id)
     );`)

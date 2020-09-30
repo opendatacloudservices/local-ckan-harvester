@@ -1,18 +1,21 @@
-import {packageList} from './ckan/index';
+import {packageList, packageShow, CkanPackage} from './ckan/index';
 import {
   allInstances,
+  processPackage,
   initTables,
   resetTables,
   dropTables,
   getInstance,
-  handlePackages,
-  handleInstance,
   initMasterTable,
   dropMasterTable,
+  definition_logs_table,
+  handleInstanceError,
 } from './postgres/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import {Client} from 'pg';
+import fetch from 'node-fetch';
+import queue from 'express-queue';
 
 // get environmental variables
 dotenv.config({path: path.join(__dirname, '../.env')});
@@ -24,6 +27,8 @@ import {
   startTransaction,
   startSpan,
 } from 'local-microservice';
+
+api.use(queue({activeLimit: 3, queuedLimit: -1}));
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -55,9 +60,9 @@ client.connect();
 /**
  * @swagger
  *
- * /process/{identifier}:
+ * /process/instance/{identifier}:
  *   get:
- *     operationId: getProcess
+ *     operationId: getProcessInstance
  *     description: Start the processing of a ckan instance
  *     produces:
  *       - application/json
@@ -69,24 +74,107 @@ client.connect();
  *       500:
  *         $ref: '#/components/responses/500'
  */
-api.get('/process/:identifier', (req, res) => {
-  const trans = startTransaction({name: '/process/:identifier', type: 'get'});
-  handleInstance(client, req, res, ckanInstance => {
-    const span = startSpan({
-      name: 'packageList',
-      options: {childOf: trans.id()},
+api.get('/process/instance/:identifier', (req, res) => {
+  const trans = startTransaction({
+    name: '/process/instance/:identifier',
+    type: 'get',
+  });
+  getInstance(client, req.params.identifier)
+    .then(ckanInstance => {
+      const span = startSpan({
+        name: 'packageList',
+        options: {childOf: trans.id()},
+      });
+      return packageList(ckanInstance.domain, ckanInstance.version).then(
+        async list => {
+          span.end();
+          for (let i = 0; i < list.result.length; i += 1) {
+            await fetch(
+              `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[i]}`
+            );
+          }
+          return Promise.resolve();
+        }
+      );
+    })
+    .then(() => {
+      res.status(200).json({message: 'Processing completed'});
+      trans.end('success');
+    })
+    .catch(err => {
+      handleInstanceError(res, req, err);
+      trans.end('error');
     });
-    return packageList(ckanInstance.domain, ckanInstance.version).then(list => {
-      span.end();
-      // do not run this in parallel, in order to not get banned as a harvester!
-      return handlePackages(client, list, ckanInstance);
-    });
-  })
+});
+
+/**
+ * @swagger
+ *
+ * /process/package/{identifier}/{id}:
+ *   get:
+ *     operationId: getProcessPackage
+ *     description: Start the processing of a ckan instance's package
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *       - $ref: '#/components/parameters/identifier'
+ *       - name: id
+ *         description: id of ckan package for url request
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: process completed
+ *       500:
+ *         $ref: '#/components/responses/500'
+ */
+api.get('/process/package/:identifier/:id', (req, res) => {
+  console.log('added');
+  res.status(200).json({message: 'Processing added'});
+
+  const trans = startTransaction({
+    name: '/process/package/:identifier/:id',
+    type: 'get',
+  });
+  getInstance(client, req.params.identifier)
+    .then(ckanInstance => {
+      let span = startSpan({
+        name: 'packageShow',
+        options: {childOf: trans.id()},
+      });
+
+      return packageShow(
+        ckanInstance.domain,
+        ckanInstance.version,
+        req.params.id
+      )
+        .then((ckanPackage: CkanPackage) => {
+          span.end();
+          span = startSpan({
+            name: 'processPackage',
+            options: {childOf: trans.id()},
+          });
+          return processPackage(client, ckanInstance.prefix, ckanPackage);
+        })
+        .then(log => {
+          span.end();
+          client.query(
+            `INSERT INTO ${definition_logs_table}
+            (instance, process, package, status, date)
+          VALUES
+            ($1, $2, $3, $4, CURRENT_TIMESTAMP);
+          `,
+            [ckanInstance.id, '/process/package', log.id, log.status]
+          );
+        });
+    })
     .then(() => {
       trans.end('success');
     })
     .catch(err => {
-      res.status(500).json({error: err.message});
+      // handleInstanceError(res, req, err);
       logError(err);
       trans.end('error');
     });
@@ -95,7 +183,7 @@ api.get('/process/:identifier', (req, res) => {
 /**
  * @swagger
  *
- * /process_all:
+ * /process/all:
  *   get:
  *     operationId: getProcessAll
  *     description: Start the processing of all ckan instance
@@ -108,25 +196,17 @@ api.get('/process/:identifier', (req, res) => {
  *       500:
  *         $ref: '#/components/responses/500'
  */
-api.get('/process_all', (req, res) => {
-  const trans = startTransaction({name: '/process_all', type: 'get'});
+api.get('/process/all', (req, res) => {
+  const trans = startTransaction({name: '/process/all', type: 'get'});
   allInstances(client)
     .then(instanceIds => {
       return Promise.all(
         instanceIds.map(identifier => {
-          // TODO: do individual endpoint calls for performance increase (cluster)
-          return getInstance(client, identifier).then(ckanInstance => {
-            const span = startSpan({
-              name: 'packageList',
-              options: {childOf: trans.id()},
-            });
-            return packageList(ckanInstance.domain, ckanInstance.version).then(
-              list => {
-                span.end();
-                return handlePackages(client, list, ckanInstance);
-              }
-            );
-          });
+          return getInstance(client, identifier).then(ckanInstance =>
+            fetch(
+              `http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`
+            )
+          );
         })
       );
     })
@@ -144,28 +224,28 @@ api.get('/process_all', (req, res) => {
 /**
  * @swagger
  *
- * /init/{domain}/{prefix}/{version}:
+ * /instance/init:
  *   get:
- *     operationId: getInit
+ *     operationId: getInstanceInit
  *     description: Initialize a new ckan instance
  *     produces:
  *       - application/json
  *     parameters:
  *       - name: domain
  *         description: Domain of the new instance, domain needs to include /api/.../ everything before /action/...
- *         in: path
+ *         in: query
  *         required: true
  *         schema:
  *           type: string
  *       - name: prefix
  *         description: Prefix used in the domain
- *         in: path
+ *         in: query
  *         required: true
  *         schema:
  *           type: string
  *       - name: version
  *         description: CKAN version either 1 and 3 are currently supported
- *         in: path
+ *         in: query
  *         required: true
  *         schema:
  *           type: integer
@@ -181,12 +261,12 @@ api.get('/process_all', (req, res) => {
  *       500:
  *         $ref: '#/components/responses/500'
  */
-api.get('/init/:domain/:prefix', (req, res) => {
-  const trans = startTransaction({name: '/init/:domain/:prefix', type: 'get'});
+api.get('/instance/init', (req, res) => {
+  const trans = startTransaction({name: '/instance/init', type: 'get'});
   if (
-    !('prefix' in req.params) ||
-    !('domain' in req.params) ||
-    !('version' in req.params)
+    !('prefix' in req.query) ||
+    !('domain' in req.query) ||
+    !('version' in req.query)
   ) {
     const err = Error(
       'Missing parameter: prefix: string, domain: string and version: number are required parameters!'
@@ -197,10 +277,10 @@ api.get('/init/:domain/:prefix', (req, res) => {
   } else {
     initTables(
       client,
-      req.params.prefix,
-      req.params.domain,
-      parseInt(req.params.version),
-      req.route.query.filter || null
+      (req.query.prefix || 'undefined').toString(),
+      (req.query.domain || 'undefined').toString(),
+      parseInt((req.query.version || '3').toString()),
+      !req.query.filter ? null : req.query.filter.toString()
     )
       .then(() => {
         res.status(200).json({message: 'Init completed'});
@@ -217,9 +297,9 @@ api.get('/init/:domain/:prefix', (req, res) => {
 /**
  * @swagger
  *
- * /reset/{identifier}:
+ * /instance/reset/{identifier}:
  *   get:
- *     operationId: getReset
+ *     operationId: getInstanceReset
  *     description: Reset all tables of a ckan instance
  *     produces:
  *       - application/json
@@ -231,18 +311,21 @@ api.get('/init/:domain/:prefix', (req, res) => {
  *       200:
  *         description: Reset completed
  */
-api.get('/reset/:identifier', (req, res) => {
-  const trans = startTransaction({name: '/reset/:identifier', type: 'get'});
-  handleInstance(client, req, res, ckanInstance => {
-    return resetTables(client, ckanInstance.prefix);
-  })
+api.get('/instance/reset/:identifier', (req, res) => {
+  const trans = startTransaction({
+    name: '/instance/reset/:identifier',
+    type: 'get',
+  });
+  getInstance(client, req.params.identifier)
+    .then(ckanInstance => {
+      return resetTables(client, ckanInstance.prefix);
+    })
     .then(() => {
       res.status(200).json({message: 'Reset completed'});
       trans.end('success');
     })
     .catch(err => {
-      res.status(500).json({error: err.message});
-      logError(err);
+      handleInstanceError(res, req, err);
       trans.end('error');
     });
 });
@@ -250,9 +333,9 @@ api.get('/reset/:identifier', (req, res) => {
 /**
  * @swagger
  *
- * /drop/{identifier}:
+ * /instance/drop/{identifier}:
  *   get:
- *     operationId: getDrop
+ *     operationId: getInstanceDrop
  *     description: Drop all tables of a ckan instance
  *     produces:
  *       - application/json
@@ -264,18 +347,21 @@ api.get('/reset/:identifier', (req, res) => {
  *       200:
  *         description: Drop completed
  */
-api.get('/drop/:identifier', (req, res) => {
-  const trans = startTransaction({name: '/drop/:identifier', type: 'get'});
-  handleInstance(client, req, res, ckanInstance => {
-    return dropTables(client, ckanInstance.prefix);
-  })
+api.get('/instance/drop/:identifier', (req, res) => {
+  const trans = startTransaction({
+    name: '/instance/drop/:identifier',
+    type: 'get',
+  });
+  getInstance(client, req.params.identifier)
+    .then(ckanInstance => {
+      return dropTables(client, ckanInstance.prefix);
+    })
     .then(() => {
       res.status(200).json({message: 'Drop completed'});
       trans.end('success');
     })
     .catch(err => {
-      res.status(500).json({error: err.message});
-      logError(err);
+      handleInstanceError(res, req, err);
       trans.end('error');
     });
 });

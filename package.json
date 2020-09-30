@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "dotenv": "^8.2.0",
+    "express-queue": "0.0.12",
     "local-microservice": "file:../local-microservice",
     "moment": "^2.27.0",
     "node-fetch": "^2.6.1",

@@ -5,7 +5,6 @@ const {closeServer} = require('../build/index');
 const {
   definition_master_table,
   definition_tables,
-  handleInstance,
   initMasterTable,
   initTables,
   getInstance,
@@ -20,7 +19,8 @@ const {
 } = require('../build/postgres/index');
 const fetch = require('node-fetch');
 
-const sampleData = require('./details.json')
+const sampleData = require('./details.json');
+const { get } = require('http');
 
 // get environmental variables
 dotenv.config();
@@ -146,7 +146,7 @@ test('getInstance (govdata)', async () => {
     });
 });
 
-test('handleInstance (govdata)', async () => {
+test('getInstance (govdata)', async () => {
   const ckanMatchInstance = {
     id: 1,
     prefix: 'govdata',
@@ -157,7 +157,7 @@ test('handleInstance (govdata)', async () => {
   res.status = () => res;
   res.json = () => res;
 
-  await handleInstance(client, {params:{identifier:'govdata'}}, res, (ckanInstance) => {
+  await getInstance(client, 'govdata').then((ckanInstance) => {
     expect(ckanInstance).toMatchObject(ckanMatchInstance);
   });
 

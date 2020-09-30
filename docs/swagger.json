@@ -13,9 +13,9 @@
     "description": "Service for harvesting and managing ckan instance data"
   },
   "paths": {
-    "/process/{identifier}": {
+    "/process/instance/{identifier}": {
       "get": {
-        "operationId": "getProcess",
+        "operationId": "getProcessInstance",
         "description": "Start the processing of a ckan instance",
         "produces": [
           "application/json"
@@ -35,7 +35,38 @@
         }
       }
     },
-    "/process_all": {
+    "/process/package/{identifier}/{id}": {
+      "get": {
+        "operationId": "getProcessPackage",
+        "description": "Start the processing of a ckan instance's package",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/identifier"
+          },
+          {
+            "name": "id",
+            "description": "id of ckan package for url request",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "process completed"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/process/all": {
       "get": {
         "operationId": "getProcessAll",
         "description": "Start the processing of all ckan instance",
@@ -53,9 +84,9 @@
         }
       }
     },
-    "/init/{domain}/{prefix}/{version}": {
+    "/instance/init": {
       "get": {
-        "operationId": "getInit",
+        "operationId": "getInstanceInit",
         "description": "Initialize a new ckan instance",
         "produces": [
           "application/json"
@@ -64,7 +95,7 @@
           {
             "name": "domain",
             "description": "Domain of the new instance, domain needs to include /api/.../ everything before /action/...",
-            "in": "path",
+            "in": "query",
             "required": true,
             "schema": {
               "type": "string"
@@ -73,7 +104,7 @@
           {
             "name": "prefix",
             "description": "Prefix used in the domain",
-            "in": "path",
+            "in": "query",
             "required": true,
             "schema": {
               "type": "string"
@@ -82,7 +113,7 @@
           {
             "name": "version",
             "description": "CKAN version either 1 and 3 are currently supported",
-            "in": "path",
+            "in": "query",
             "required": true,
             "schema": {
               "type": "integer"
@@ -108,9 +139,9 @@
         }
       }
     },
-    "/reset/{identifier}": {
+    "/instance/reset/{identifier}": {
       "get": {
-        "operationId": "getReset",
+        "operationId": "getInstanceReset",
         "description": "Reset all tables of a ckan instance",
         "produces": [
           "application/json"
@@ -130,9 +161,9 @@
         }
       }
     },
-    "/drop/{identifier}": {
+    "/instance/drop/{identifier}": {
       "get": {
-        "operationId": "getDrop",
+        "operationId": "getInstanceDrop",
         "description": "Drop all tables of a ckan instance",
         "produces": [
           "application/json"
