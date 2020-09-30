@@ -96,9 +96,8 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
             span.end();
             res.status(200).json({ message: 'Processing completed' });
             // number of simulations calls per process
-            const parallelCount = 2 * processCount;
+            const parallelCount = 3 * processCount;
             for (let i = 0; i < list.result.length; i += parallelCount) {
-                console.log('process/instance/fetch:', list.result.length, i);
                 const fetchs = [];
                 for (let j = i; j < i + parallelCount; j += 1) {
                     fetchs.push(node_fetch_1.default(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`));

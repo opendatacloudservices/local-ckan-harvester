@@ -372,7 +372,7 @@ exports.dropMasterTable = (client) => {
 };
 exports.getInstance = (client, identifier) => {
     return client
-        .query(`SELECT id, prefix, domain, version FROM ${exports.definition_master_table} WHERE ${typeof identifier === 'number' ? 'id' : 'prefix'} = $1`, [identifier])
+        .query(`SELECT id, prefix, domain, version FROM ${exports.definition_master_table} WHERE ${isNaN(Number(identifier)) ? 'prefix' : 'id'} = $1`, [isNaN(Number(identifier)) ? identifier : Number(identifier)])
         .then(result => {
         if (result.rows.length === 1) {
             return Promise.resolve({
@@ -607,7 +607,7 @@ exports.allInstances = (client) => {
     return client
         .query(`SELECT id FROM ${exports.definition_master_table};`, [])
         .then(result => {
-        return result.rows;
+        return result.rows.map(row => row.id);
     });
 };
 //# sourceMappingURL=index.js.map

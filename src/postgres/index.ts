@@ -509,9 +509,9 @@ export const getInstance = (
   return client
     .query(
       `SELECT id, prefix, domain, version FROM ${definition_master_table} WHERE ${
-        typeof identifier === 'number' ? 'id' : 'prefix'
+        isNaN(Number(identifier)) ? 'prefix' : 'id'
       } = $1`,
-      [identifier]
+      [isNaN(Number(identifier)) ? identifier : Number(identifier)]
     )
     .then(result => {
       if (result.rows.length === 1) {
@@ -823,6 +823,6 @@ export const allInstances = (client: Client): Promise<number[]> => {
   return client
     .query(`SELECT id FROM ${definition_master_table};`, [])
     .then(result => {
-      return result.rows;
+      return result.rows.map(row => row.id);
     });
 };
