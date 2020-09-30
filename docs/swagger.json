@@ -35,6 +35,24 @@
         }
       }
     },
+    "/process_all": {
+      "get": {
+        "operationId": "getProcessAll",
+        "description": "Start the processing of all ckan instance",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "processes initiated"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
     "/init/{domain}/{prefix}/{version}": {
       "get": {
         "operationId": "getInit",
@@ -124,6 +142,42 @@
             "$ref": "#/components/parameters/identifier"
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Drop completed"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/master/init": {
+      "get": {
+        "operationId": "getMasterInit",
+        "description": "Inititate the ckan management tables",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": null,
+        "responses": {
+          "200": {
+            "description": "Init completed"
+          },
+          "500": {
+            "$ref": "#/components/responses/500"
+          }
+        }
+      }
+    },
+    "/master/drop": {
+      "get": {
+        "operationId": "getMasterDrop",
+        "description": "Drop the ckan management tables",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": null,
         "responses": {
           "200": {
             "description": "Drop completed"

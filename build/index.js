@@ -59,6 +59,7 @@ local_microservice_1.api.get('/process/:identifier', (req, res) => {
         });
         return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(list => {
             span.end();
+            // do not run this in parallel, in order to not get banned as a harvester!
             return index_2.handlePackages(client, list, ckanInstance);
         });
     })
@@ -92,6 +93,7 @@ local_microservice_1.api.get('/process_all', (req, res) => {
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
+            // TODO: do individual endpoint calls for performance increase (cluster)
             return index_2.getInstance(client, identifier).then(ckanInstance => {
                 const span = local_microservice_1.startSpan({
                     name: 'packageList',
@@ -241,6 +243,63 @@ local_microservice_1.api.get('/drop/:identifier', (req, res) => {
         trans.end('error');
     });
 });
-// API to init/clear database
+/**
+ * @swagger
+ *
+ * /master/init:
+ *   get:
+ *     operationId: getMasterInit
+ *     description: Inititate the ckan management tables
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *     responses:
+ *       500:
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Init completed
+ */
+local_microservice_1.api.get('/master/init', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/master/init', type: 'get' });
+    index_2.initMasterTable(client)
+        .then(() => {
+        res.status(200).json({ message: 'Init completed' });
+        trans.end('success');
+    })
+        .catch(err => {
+        res.status(500).json({ error: err.message });
+        local_microservice_1.logError(err);
+        trans.end('error');
+    });
+});
+/**
+ * @swagger
+ *
+ * /master/drop:
+ *   get:
+ *     operationId: getMasterDrop
+ *     description: Drop the ckan management tables
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *     responses:
+ *       500:
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Drop completed
+ */
+local_microservice_1.api.get('/master/drop', (req, res) => {
+    const trans = local_microservice_1.startTransaction({ name: '/master/drop', type: 'get' });
+    index_2.dropMasterTable(client)
+        .then(() => {
+        res.status(200).json({ message: 'Drop completed' });
+        trans.end('success');
+    })
+        .catch(err => {
+        res.status(500).json({ error: err.message });
+        local_microservice_1.logError(err);
+        trans.end('error');
+    });
+});
 local_microservice_1.catchAll();
 //# sourceMappingURL=index.js.map

@@ -7,6 +7,8 @@ import {
   getInstance,
   handlePackages,
   handleInstance,
+  initMasterTable,
+  dropMasterTable,
 } from './postgres/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -76,6 +78,7 @@ api.get('/process/:identifier', (req, res) => {
     });
     return packageList(ckanInstance.domain, ckanInstance.version).then(list => {
       span.end();
+      // do not run this in parallel, in order to not get banned as a harvester!
       return handlePackages(client, list, ckanInstance);
     });
   })
@@ -111,6 +114,7 @@ api.get('/process_all', (req, res) => {
     .then(instanceIds => {
       return Promise.all(
         instanceIds.map(identifier => {
+          // TODO: do individual endpoint calls for performance increase (cluster)
           return getInstance(client, identifier).then(ckanInstance => {
             const span = startSpan({
               name: 'packageList',
@@ -276,6 +280,64 @@ api.get('/drop/:identifier', (req, res) => {
     });
 });
 
-// API to init/clear database
+/**
+ * @swagger
+ *
+ * /master/init:
+ *   get:
+ *     operationId: getMasterInit
+ *     description: Inititate the ckan management tables
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *     responses:
+ *       500:
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Init completed
+ */
+api.get('/master/init', (req, res) => {
+  const trans = startTransaction({name: '/master/init', type: 'get'});
+  initMasterTable(client)
+    .then(() => {
+      res.status(200).json({message: 'Init completed'});
+      trans.end('success');
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      logError(err);
+      trans.end('error');
+    });
+});
+
+/**
+ * @swagger
+ *
+ * /master/drop:
+ *   get:
+ *     operationId: getMasterDrop
+ *     description: Drop the ckan management tables
+ *     produces:
+ *       - application/json
+ *     parameters:
+ *     responses:
+ *       500:
+ *         $ref: '#/components/responses/500'
+ *       200:
+ *         description: Drop completed
+ */
+api.get('/master/drop', (req, res) => {
+  const trans = startTransaction({name: '/master/drop', type: 'get'});
+  dropMasterTable(client)
+    .then(() => {
+      res.status(200).json({message: 'Drop completed'});
+      trans.end('success');
+    })
+    .catch(err => {
+      res.status(500).json({error: err.message});
+      logError(err);
+      trans.end('error');
+    });
+});
 
 catchAll();
