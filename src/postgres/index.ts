@@ -476,6 +476,7 @@ export const initMasterTable = (client: Client): Promise<void> => {
       domain text NOT NULL,
       filter text,
       version integer NOT NULL,
+      active boolean NOT NULL,
       date_added timestamp without time zone,
       date_updated timestamp without time zone,
       CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
@@ -576,9 +577,9 @@ export const initTables = (
     .then(() =>
       client.query(
         `INSERT INTO ${definition_master_table} 
-        (prefix, domain, version, date_added, filter)
+        (prefix, domain, version, date_added, filter, active)
         VALUES
-        ($1, $2, $3, $4, $5);`,
+        ($1, $2, $3, $4, $5, TRUE);`,
         [
           prefix,
           domain,
@@ -821,7 +822,7 @@ export const dropTables = (client: Client, prefix: string): Promise<void> => {
 
 export const allInstances = (client: Client): Promise<number[]> => {
   return client
-    .query(`SELECT id FROM ${definition_master_table};`, [])
+    .query(`SELECT id FROM ${definition_master_table} WHERE active = TRUE;`, [])
     .then(result => {
       return result.rows.map(row => row.id);
     });

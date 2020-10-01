@@ -349,6 +349,7 @@ exports.initMasterTable = (client) => {
       domain text NOT NULL,
       filter text,
       version integer NOT NULL,
+      active boolean NOT NULL,
       date_added timestamp without time zone,
       date_updated timestamp without time zone,
       CONSTRAINT ${exports.definition_master_table}_pkey PRIMARY KEY (id)
@@ -416,9 +417,9 @@ exports.initTables = (client, prefix, domain, version, filter) => {
         return Promise.resolve();
     })
         .then(() => client.query(`INSERT INTO ${exports.definition_master_table} 
-        (prefix, domain, version, date_added, filter)
+        (prefix, domain, version, date_added, filter, active)
         VALUES
-        ($1, $2, $3, $4, $5);`, [
+        ($1, $2, $3, $4, $5, TRUE);`, [
         prefix,
         domain,
         version,
@@ -605,7 +606,7 @@ exports.dropTables = (client, prefix) => {
 };
 exports.allInstances = (client) => {
     return client
-        .query(`SELECT id FROM ${exports.definition_master_table};`, [])
+        .query(`SELECT id FROM ${exports.definition_master_table} WHERE active = TRUE;`, [])
         .then(result => {
         return result.rows.map(row => row.id);
     });

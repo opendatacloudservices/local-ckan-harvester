@@ -82,6 +82,7 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
+    console.log('process instance', req.params.identifier);
     const trans = local_microservice_1.startTransaction({
         name: '/process/instance/:identifier',
         type: 'get',
@@ -100,7 +101,11 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
             for (let i = 0; i < list.result.length; i += parallelCount) {
                 const fetchs = [];
                 for (let j = i; j < i + parallelCount; j += 1) {
-                    fetchs.push(node_fetch_1.default(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`));
+                    // fetchs.push(
+                    //   fetch(
+                    //     `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
+                    //   )
+                    // );
                 }
                 await Promise.all(fetchs);
             }
@@ -197,6 +202,7 @@ local_microservice_1.api.get('/process/all', (req, res) => {
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
+            console.log('process/all', identifier);
             return index_2.getInstance(client, identifier).then(ckanInstance => node_fetch_1.default(`http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`));
         }));
     })

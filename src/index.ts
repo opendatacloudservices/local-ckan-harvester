@@ -81,6 +81,7 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/instance/:identifier', (req, res) => {
+  console.log('process instance', req.params.identifier);
   const trans = startTransaction({
     name: '/process/instance/:identifier',
     type: 'get',
@@ -98,13 +99,13 @@ api.get('/process/instance/:identifier', (req, res) => {
           // number of simulations calls per process
           const parallelCount = 3 * processCount;
           for (let i = 0; i < list.result.length; i += parallelCount) {
-            const fetchs = [];
+            const fetchs: Promise<void>[] = [];
             for (let j = i; j < i + parallelCount; j += 1) {
-              fetchs.push(
-                fetch(
-                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
-                )
-              );
+              // fetchs.push(
+              //   fetch(
+              //     `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
+              //   )
+              // );
             }
             await Promise.all(fetchs);
           }
@@ -213,6 +214,7 @@ api.get('/process/all', (req, res) => {
     .then(instanceIds => {
       return Promise.all(
         instanceIds.map(identifier => {
+          console.log('process/all', identifier);
           return getInstance(client, identifier).then(ckanInstance =>
             fetch(
               `http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`
