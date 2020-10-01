@@ -81,7 +81,6 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/instance/:identifier', (req, res) => {
-  console.log('process instance', req.params.identifier);
   const trans = startTransaction({
     name: '/process/instance/:identifier',
     type: 'get',
@@ -96,16 +95,19 @@ api.get('/process/instance/:identifier', (req, res) => {
         async list => {
           span.end();
           res.status(200).json({message: 'Processing completed'});
-          // number of simulations calls per process
-          const parallelCount = 3 * processCount;
+          // number of parallel calls per process
+          let parallelCount = 3 * processCount;
+          if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
+            parallelCount = ckanInstance.rate_limit;
+          }
           for (let i = 0; i < list.result.length; i += parallelCount) {
-            const fetchs: Promise<void>[] = [];
+            const fetchs = [];
             for (let j = i; j < i + parallelCount; j += 1) {
-              // fetchs.push(
-              //   fetch(
-              //     `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
-              //   )
-              // );
+              fetchs.push(
+                fetch(
+                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
+                )
+              );
             }
             await Promise.all(fetchs);
           }
@@ -214,7 +216,6 @@ api.get('/process/all', (req, res) => {
     .then(instanceIds => {
       return Promise.all(
         instanceIds.map(identifier => {
-          console.log('process/all', identifier);
           return getInstance(client, identifier).then(ckanInstance =>
             fetch(
               `http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`
@@ -293,6 +294,7 @@ api.get('/instance/init', (req, res) => {
       (req.query.prefix || 'undefined').toString(),
       (req.query.domain || 'undefined').toString(),
       parseInt((req.query.version || '3').toString()),
+      !req.query.rate_limit ? 0 : parseInt(req.query.rate_limit.toString()),
       !req.query.filter ? null : req.query.filter.toString()
     )
       .then(() => {

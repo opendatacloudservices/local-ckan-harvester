@@ -82,7 +82,6 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
-    console.log('process instance', req.params.identifier);
     const trans = local_microservice_1.startTransaction({
         name: '/process/instance/:identifier',
         type: 'get',
@@ -96,16 +95,15 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
         return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(async (list) => {
             span.end();
             res.status(200).json({ message: 'Processing completed' });
-            // number of simulations calls per process
-            const parallelCount = 3 * processCount;
+            // number of parallel calls per process
+            let parallelCount = 3 * processCount;
+            if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
+                parallelCount = ckanInstance.rate_limit;
+            }
             for (let i = 0; i < list.result.length; i += parallelCount) {
                 const fetchs = [];
                 for (let j = i; j < i + parallelCount; j += 1) {
-                    // fetchs.push(
-                    //   fetch(
-                    //     `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
-                    //   )
-                    // );
+                    fetchs.push(node_fetch_1.default(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`));
                 }
                 await Promise.all(fetchs);
             }
@@ -202,7 +200,6 @@ local_microservice_1.api.get('/process/all', (req, res) => {
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
-            console.log('process/all', identifier);
             return index_2.getInstance(client, identifier).then(ckanInstance => node_fetch_1.default(`http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`));
         }));
     })
@@ -267,7 +264,7 @@ local_microservice_1.api.get('/instance/init', (req, res) => {
         local_microservice_1.logError(err);
     }
     else {
-        index_2.initTables(client, (req.query.prefix || 'undefined').toString(), (req.query.domain || 'undefined').toString(), parseInt((req.query.version || '3').toString()), !req.query.filter ? null : req.query.filter.toString())
+        index_2.initTables(client, (req.query.prefix || 'undefined').toString(), (req.query.domain || 'undefined').toString(), parseInt((req.query.version || '3').toString()), !req.query.rate_limit ? 0 : parseInt(req.query.rate_limit.toString()), !req.query.filter ? null : req.query.filter.toString())
             .then(() => {
             res.status(200).json({ message: 'Init completed' });
             trans.end('success');

@@ -8,7 +8,13 @@ const node_fetch_1 = __importDefault(require("node-fetch"));
 // eslint-disable-next-line
 const handleFetch = (res) => {
     if (res.status >= 200 && res.status < 300) {
-        return res.json();
+        return res.json().then(json => {
+            // api v1 fix
+            if (!('result' in json)) {
+                json = { result: json };
+            }
+            return Promise.resolve(json);
+        });
     }
     else {
         return Promise.reject(Error(res.statusText || res.status.toString()));

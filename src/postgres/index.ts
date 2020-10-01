@@ -24,6 +24,7 @@ export type CkanInstance = {
   domain: string;
   prefix: string;
   version: number;
+  rate_limit: number | null;
 };
 
 export const handleInstanceError = (
@@ -31,14 +32,16 @@ export const handleInstanceError = (
   req: Request,
   err: Error
 ) => {
-  if (err.message === 'Instance not found.') {
-    res.status(404).json({message: err.message});
-  } else {
-    res.status(500).json({error: err.message});
+  if (!res.headersSent) {
+    if (err.message === 'Instance not found.') {
+      res.status(404).json({message: err.message});
+    } else {
+      res.status(500).json({error: err.message});
+    }
   }
   logError({
     message: err.message,
-    params: [req.params.identifier],
+    params: [JSON.stringify(req.params)],
   });
 };
 
@@ -258,7 +261,7 @@ export const insertPackage = (
         r.private,
         r.maintainer,
         r.license_title,
-        r.organization.id,
+        'organization' in r ? r.organization.id : null,
         r.ckan_status || 'new',
       ]
     )
@@ -272,32 +275,36 @@ export const packageUpsertOrganization = (
   prefix: string,
   ckanPackage: CkanPackage
 ): Promise<void> => {
-  const o = ckanPackage.result.organization;
-  return client
-    .query(
-      `INSERT INTO ${prefix}_organizations (
-      id, name, title, description, type, state, image_url, 
-      is_organization, created, revision_id) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
-      ) ON CONFLICT (id) DO UPDATE SET
-      name = $2, title = $3, description = $4, type = $5, state = $6, image_url = $7, 
-      is_organization = $8, created = $9, revision_id = $10`,
-      [
-        o.id,
-        o.name,
-        o.title,
-        o.description,
-        o.type,
-        o.state,
-        o.image_url,
-        o.is_organization,
-        o.created,
-        o.revision_id,
-      ]
-    )
-    .then(() => {
-      return Promise.resolve();
-    });
+  if ('organization' in ckanPackage.result) {
+    const o = ckanPackage.result.organization;
+    return client
+      .query(
+        `INSERT INTO ${prefix}_organizations (
+        id, name, title, description, type, state, image_url, 
+        is_organization, created, revision_id) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+        ) ON CONFLICT (id) DO UPDATE SET
+        name = $2, title = $3, description = $4, type = $5, state = $6, image_url = $7, 
+        is_organization = $8, created = $9, revision_id = $10`,
+        [
+          o.id,
+          o.name,
+          o.title,
+          o.description,
+          o.type,
+          o.state,
+          o.image_url,
+          o.is_organization,
+          o.created,
+          o.revision_id,
+        ]
+      )
+      .then(() => {
+        return Promise.resolve();
+      });
+  } else {
+    return Promise.resolve();
+  }
 };
 
 export const packageInsertExtras = (
@@ -406,10 +413,18 @@ export const packageUpsertGroups = async (
         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO UPDATE SET
         name = $2, display_name = $3, title = $4, description = $5, image_display_url = $6`,
         [
-          ckanPackage.result.groups[g].id,
-          ckanPackage.result.groups[g].name,
-          ckanPackage.result.groups[g].display_name,
-          ckanPackage.result.groups[g].title,
+          typeof ckanPackage.result.groups[g] === 'string'
+            ? ckanPackage.result.groups[g].toString().substr(0, 36)
+            : ckanPackage.result.groups[g].id,
+          typeof ckanPackage.result.groups[g] === 'string'
+            ? ckanPackage.result.groups[g]
+            : ckanPackage.result.groups[g].name,
+          typeof ckanPackage.result.groups[g] === 'string'
+            ? ckanPackage.result.groups[g]
+            : ckanPackage.result.groups[g].display_name,
+          typeof ckanPackage.result.groups[g] === 'string'
+            ? ckanPackage.result.groups[g]
+            : ckanPackage.result.groups[g].title,
           ckanPackage.result.groups[g].description,
           ckanPackage.result.groups[g].image_display_url,
         ]
@@ -417,7 +432,12 @@ export const packageUpsertGroups = async (
 
       await client.query(
         `INSERT INTO ${prefix}_ref_groups_packages (package_id, group_id) VALUES ($1, $2)`,
-        [ckanPackage.result.id, ckanPackage.result.groups[g].id]
+        [
+          ckanPackage.result.id,
+          typeof ckanPackage.result.groups[g] === 'string'
+            ? ckanPackage.result.groups[g].toString().substr(0, 36)
+            : ckanPackage.result.groups[g].id,
+        ]
       );
     }
   }
@@ -436,9 +456,15 @@ export const packageUpsertTags = async (
         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO UPDATE SET
         name = $2, display_name = $3, state = $4, vocabulary_id = $5`,
         [
-          ckanPackage.result.tags[t].id,
-          ckanPackage.result.tags[t].name,
-          ckanPackage.result.tags[t].display_name,
+          typeof ckanPackage.result.tags[t] === 'string'
+            ? ckanPackage.result.tags[t].toString().substr(0, 36)
+            : ckanPackage.result.tags[t].id,
+          typeof ckanPackage.result.tags[t] === 'string'
+            ? ckanPackage.result.tags[t]
+            : ckanPackage.result.tags[t].name,
+          typeof ckanPackage.result.tags[t] === 'string'
+            ? ckanPackage.result.tags[t]
+            : ckanPackage.result.tags[t].display_name,
           ckanPackage.result.tags[t].state,
           ckanPackage.result.tags[t].vocabulary_id,
         ]
@@ -446,7 +472,12 @@ export const packageUpsertTags = async (
 
       await client.query(
         `INSERT INTO ${prefix}_ref_tags_packages (package_id, tag_id) VALUES ($1, $2)`,
-        [ckanPackage.result.id, ckanPackage.result.tags[t].id]
+        [
+          ckanPackage.result.id,
+          typeof ckanPackage.result.tags[t] === 'string'
+            ? ckanPackage.result.tags[t].toString().substr(0, 36)
+            : ckanPackage.result.tags[t].id,
+        ]
       );
     }
   }
@@ -476,6 +507,7 @@ export const initMasterTable = (client: Client): Promise<void> => {
       domain text NOT NULL,
       filter text,
       version integer NOT NULL,
+      rate_limit integer DEFAULT NULL,
       active boolean NOT NULL,
       date_added timestamp without time zone,
       date_updated timestamp without time zone,
@@ -509,7 +541,7 @@ export const getInstance = (
 ): Promise<CkanInstance> => {
   return client
     .query(
-      `SELECT id, prefix, domain, version FROM ${definition_master_table} WHERE ${
+      `SELECT id, prefix, domain, version, rate_limit FROM ${definition_master_table} WHERE ${
         isNaN(Number(identifier)) ? 'prefix' : 'id'
       } = $1`,
       [isNaN(Number(identifier)) ? identifier : Number(identifier)]
@@ -521,6 +553,7 @@ export const getInstance = (
           prefix: result.rows[0].prefix,
           domain: result.rows[0].domain,
           version: result.rows[0].version,
+          rate_limit: result.rows[0].rate_limit,
         });
       } else {
         return Promise.reject(Error('Instance not found.'));
@@ -561,6 +594,7 @@ export const initTables = (
   prefix: string,
   domain: string,
   version: number,
+  rate_limit?: number,
   filter?: string | null
 ): Promise<void> => {
   return tablesExist(client, prefix, definition_tables)
@@ -577,21 +611,22 @@ export const initTables = (
     .then(() =>
       client.query(
         `INSERT INTO ${definition_master_table} 
-        (prefix, domain, version, date_added, filter, active)
+        (prefix, domain, version, date_added, filter, active, rate_limit)
         VALUES
-        ($1, $2, $3, $4, $5, TRUE);`,
+        ($1, $2, $3, $4, $5, TRUE, $6);`,
         [
           prefix,
           domain,
           version,
           moment().format('YYYY-MM-DD hh:mm:ss'),
           filter,
+          rate_limit === 0 ? null : rate_limit,
         ]
       )
     )
     .then(() =>
       client.query(`CREATE TABLE ${prefix}_groups (
-        id character varying(4) NOT NULL,
+        id character varying(36) NOT NULL,
         name text,
         display_name text,
         title text,
