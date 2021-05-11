@@ -2,7 +2,7 @@ import {Client, QueryResult} from 'pg';
 import {CkanPackage, CkanResource} from '../ckan/index';
 import moment from 'moment';
 import {Response, Request} from 'express';
-import {logError} from 'local-microservice';
+import {logError, localTokens} from 'local-logger';
 
 export const definition_tables = [
   'ref_groups_packages',
@@ -40,7 +40,8 @@ export const handleInstanceError = (
     }
   }
   logError({
-    message: err.message,
+    ...localTokens(res),
+    message: err,
     params: [JSON.stringify(req.params)],
   });
 };

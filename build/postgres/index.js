@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handleInstanceError = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
 const moment_1 = __importDefault(require("moment"));
-const local_microservice_1 = require("local-microservice");
+const local_logger_1 = require("local-logger");
 exports.definition_tables = [
     'ref_groups_packages',
     'ref_tags_packages',
@@ -28,8 +28,9 @@ exports.handleInstanceError = (res, req, err) => {
             res.status(500).json({ error: err.message });
         }
     }
-    local_microservice_1.logError({
-        message: err.message,
+    local_logger_1.logError({
+        ...local_logger_1.localTokens(res),
+        message: err,
         params: [JSON.stringify(req.params)],
     });
 };

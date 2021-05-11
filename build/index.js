@@ -14,7 +14,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -32,6 +32,7 @@ const pm2 = __importStar(require("local-pm2-config"));
 // get environmental variables
 dotenv.config({ path: path.join(__dirname, '../.env') });
 const local_microservice_1 = require("local-microservice");
+const local_logger_1 = require("local-logger");
 // connect to postgres (via env vars params)
 const client = new pg_1.Client({
     user: process.env.PGUSER,
@@ -82,19 +83,14 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
-    const trans = local_microservice_1.startTransaction({
-        name: '/process/instance/:identifier',
-        type: 'get',
-    });
     index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
-        const span = local_microservice_1.startSpan({
+        const trans = local_logger_1.startTransaction({
             name: 'packageList',
-            options: { childOf: trans.id() },
+            ...local_logger_1.localTokens(res),
         });
         return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(async (list) => {
-            span.end();
-            res.status(200).json({ message: 'Processing completed' });
+            local_microservice_1.simpleResponse(200, 'Processing completed', res, trans);
             // number of parallel calls per process
             let parallelCount = 3 * processCount;
             if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
@@ -107,15 +103,12 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
                 }
                 await Promise.all(fetchs);
             }
+            trans(true, 'Parallel package processing completed');
             return Promise.resolve();
         });
     })
-        .then(() => {
-        trans.end('success');
-    })
         .catch(err => {
         index_2.handleInstanceError(res, req, err);
-        trans.end('error');
     });
 });
 /**
@@ -142,27 +135,19 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/package/:identifier/:id', (req, res) => {
-    const trans = local_microservice_1.startTransaction({
-        name: '/process/package/:identifier/:id',
-        type: 'get',
-    });
     index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
-        let span = local_microservice_1.startSpan({
+        const trans = local_logger_1.startTransaction({
             name: 'packageShow',
-            options: { childOf: trans.id() },
+            ...local_logger_1.localTokens(res),
         });
         return index_1.packageShow(ckanInstance.domain, ckanInstance.version, req.params.id)
             .then((ckanPackage) => {
-            span.end();
-            span = local_microservice_1.startSpan({
-                name: 'processPackage',
-                options: { childOf: trans.id() },
-            });
+            trans(true, 'packageShow complete');
             return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
         })
             .then(log => {
-            span.end();
+            trans(true, 'processPackage complete');
             client.query(`INSERT INTO ${index_2.definition_logs_table}
             (instance, process, package, status, date)
           VALUES
@@ -172,11 +157,9 @@ local_microservice_1.api.get('/process/package/:identifier/:id', (req, res) => {
     })
         .then(() => {
         res.status(200).json({ message: 'Processing completed' });
-        trans.end('success');
     })
         .catch(err => {
         index_2.handleInstanceError(res, req, err);
-        trans.end('error');
     });
 });
 /**
@@ -196,7 +179,6 @@ local_microservice_1.api.get('/process/package/:identifier/:id', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/process/all', (req, res) => {
-    const trans = local_microservice_1.startTransaction({ name: '/process/all', type: 'get' });
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
@@ -205,12 +187,9 @@ local_microservice_1.api.get('/process/all', (req, res) => {
     })
         .then(() => {
         res.status(200).json({ message: 'Processing completed' });
-        trans.end('success');
     })
         .catch(err => {
-        res.status(500).json({ error: err.message });
-        local_microservice_1.logError(err);
-        trans.end('error');
+        index_2.handleInstanceError(res, req, err);
     });
 });
 /**
@@ -254,25 +233,23 @@ local_microservice_1.api.get('/process/all', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 local_microservice_1.api.get('/instance/init', (req, res) => {
-    const trans = local_microservice_1.startTransaction({ name: '/instance/init', type: 'get' });
     if (!('prefix' in req.query) ||
         !('domain' in req.query) ||
         !('version' in req.query)) {
         const err = Error('Missing parameter: prefix: string, domain: string and version: number are required parameters!');
+        local_logger_1.logError({
+            ...local_logger_1.localTokens(res),
+            err,
+        });
         res.status(500).json({ error: err.message });
-        trans.end('error');
-        local_microservice_1.logError(err);
     }
     else {
         index_2.initTables(client, (req.query.prefix || 'undefined').toString(), (req.query.domain || 'undefined').toString(), parseInt((req.query.version || '3').toString()), !req.query.rate_limit ? 0 : parseInt(req.query.rate_limit.toString()), !req.query.filter ? null : req.query.filter.toString())
             .then(() => {
             res.status(200).json({ message: 'Init completed' });
-            trans.end('success');
         })
             .catch(err => {
-            res.status(500).json({ error: err.message });
-            local_microservice_1.logError(err);
-            trans.end('error');
+            index_2.handleInstanceError(res, req, err);
         });
     }
 });
@@ -294,21 +271,15 @@ local_microservice_1.api.get('/instance/init', (req, res) => {
  *         description: Reset completed
  */
 local_microservice_1.api.get('/instance/reset/:identifier', (req, res) => {
-    const trans = local_microservice_1.startTransaction({
-        name: '/instance/reset/:identifier',
-        type: 'get',
-    });
     index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
         return index_2.resetTables(client, ckanInstance.prefix);
     })
         .then(() => {
         res.status(200).json({ message: 'Reset completed' });
-        trans.end('success');
     })
         .catch(err => {
         index_2.handleInstanceError(res, req, err);
-        trans.end('error');
     });
 });
 /**
@@ -329,21 +300,15 @@ local_microservice_1.api.get('/instance/reset/:identifier', (req, res) => {
  *         description: Drop completed
  */
 local_microservice_1.api.get('/instance/drop/:identifier', (req, res) => {
-    const trans = local_microservice_1.startTransaction({
-        name: '/instance/drop/:identifier',
-        type: 'get',
-    });
     index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
         return index_2.dropTables(client, ckanInstance.prefix);
     })
         .then(() => {
         res.status(200).json({ message: 'Drop completed' });
-        trans.end('success');
     })
         .catch(err => {
         index_2.handleInstanceError(res, req, err);
-        trans.end('error');
     });
 });
 /**
@@ -363,16 +328,13 @@ local_microservice_1.api.get('/instance/drop/:identifier', (req, res) => {
  *         description: Init completed
  */
 local_microservice_1.api.get('/master/init', (req, res) => {
-    const trans = local_microservice_1.startTransaction({ name: '/master/init', type: 'get' });
     index_2.initMasterTable(client)
         .then(() => {
         res.status(200).json({ message: 'Init completed' });
-        trans.end('success');
     })
         .catch(err => {
         res.status(500).json({ error: err.message });
-        local_microservice_1.logError(err);
-        trans.end('error');
+        local_logger_1.logError(err);
     });
 });
 /**
@@ -392,16 +354,13 @@ local_microservice_1.api.get('/master/init', (req, res) => {
  *         description: Drop completed
  */
 local_microservice_1.api.get('/master/drop', (req, res) => {
-    const trans = local_microservice_1.startTransaction({ name: '/master/drop', type: 'get' });
     index_2.dropMasterTable(client)
         .then(() => {
         res.status(200).json({ message: 'Drop completed' });
-        trans.end('success');
     })
         .catch(err => {
         res.status(500).json({ error: err.message });
-        local_microservice_1.logError(err);
-        trans.end('error');
+        local_logger_1.logError(err);
     });
 });
 local_microservice_1.catchAll();

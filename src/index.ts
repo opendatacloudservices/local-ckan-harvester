@@ -20,13 +20,9 @@ import * as pm2 from 'local-pm2-config';
 // get environmental variables
 dotenv.config({path: path.join(__dirname, '../.env')});
 
-import {
-  api,
-  catchAll,
-  logError,
-  startTransaction,
-  startSpan,
-} from 'local-microservice';
+import {api, catchAll, simpleResponse} from 'local-microservice';
+
+import {logError, startTransaction, localTokens} from 'local-logger';
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -81,20 +77,15 @@ pm2.apps.forEach(app => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/instance/:identifier', (req, res) => {
-  const trans = startTransaction({
-    name: '/process/instance/:identifier',
-    type: 'get',
-  });
   getInstance(client, req.params.identifier)
     .then(ckanInstance => {
-      const span = startSpan({
+      const trans = startTransaction({
         name: 'packageList',
-        options: {childOf: trans.id()},
+        ...localTokens(res),
       });
       return packageList(ckanInstance.domain, ckanInstance.version).then(
         async list => {
-          span.end();
-          res.status(200).json({message: 'Processing completed'});
+          simpleResponse(200, 'Processing completed', res, trans);
           // number of parallel calls per process
           let parallelCount = 3 * processCount;
           if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
@@ -111,16 +102,13 @@ api.get('/process/instance/:identifier', (req, res) => {
             }
             await Promise.all(fetchs);
           }
+          trans(true, 'Parallel package processing completed');
           return Promise.resolve();
         }
       );
     })
-    .then(() => {
-      trans.end('success');
-    })
     .catch(err => {
       handleInstanceError(res, req, err);
-      trans.end('error');
     });
 });
 
@@ -148,15 +136,11 @@ api.get('/process/instance/:identifier', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/package/:identifier/:id', (req, res) => {
-  const trans = startTransaction({
-    name: '/process/package/:identifier/:id',
-    type: 'get',
-  });
   getInstance(client, req.params.identifier)
     .then(ckanInstance => {
-      let span = startSpan({
+      const trans = startTransaction({
         name: 'packageShow',
-        options: {childOf: trans.id()},
+        ...localTokens(res),
       });
 
       return packageShow(
@@ -165,15 +149,11 @@ api.get('/process/package/:identifier/:id', (req, res) => {
         req.params.id
       )
         .then((ckanPackage: CkanPackage) => {
-          span.end();
-          span = startSpan({
-            name: 'processPackage',
-            options: {childOf: trans.id()},
-          });
+          trans(true, 'packageShow complete');
           return processPackage(client, ckanInstance.prefix, ckanPackage);
         })
         .then(log => {
-          span.end();
+          trans(true, 'processPackage complete');
           client.query(
             `INSERT INTO ${definition_logs_table}
             (instance, process, package, status, date)
@@ -186,11 +166,9 @@ api.get('/process/package/:identifier/:id', (req, res) => {
     })
     .then(() => {
       res.status(200).json({message: 'Processing completed'});
-      trans.end('success');
     })
     .catch(err => {
       handleInstanceError(res, req, err);
-      trans.end('error');
     });
 });
 
@@ -211,7 +189,6 @@ api.get('/process/package/:identifier/:id', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/process/all', (req, res) => {
-  const trans = startTransaction({name: '/process/all', type: 'get'});
   allInstances(client)
     .then(instanceIds => {
       return Promise.all(
@@ -226,12 +203,9 @@ api.get('/process/all', (req, res) => {
     })
     .then(() => {
       res.status(200).json({message: 'Processing completed'});
-      trans.end('success');
     })
     .catch(err => {
-      res.status(500).json({error: err.message});
-      logError(err);
-      trans.end('error');
+      handleInstanceError(res, req, err);
     });
 });
 
@@ -276,7 +250,6 @@ api.get('/process/all', (req, res) => {
  *         $ref: '#/components/responses/500'
  */
 api.get('/instance/init', (req, res) => {
-  const trans = startTransaction({name: '/instance/init', type: 'get'});
   if (
     !('prefix' in req.query) ||
     !('domain' in req.query) ||
@@ -285,9 +258,11 @@ api.get('/instance/init', (req, res) => {
     const err = Error(
       'Missing parameter: prefix: string, domain: string and version: number are required parameters!'
     );
+    logError({
+      ...localTokens(res),
+      err,
+    });
     res.status(500).json({error: err.message});
-    trans.end('error');
-    logError(err);
   } else {
     initTables(
       client,
@@ -299,12 +274,9 @@ api.get('/instance/init', (req, res) => {
     )
       .then(() => {
         res.status(200).json({message: 'Init completed'});
-        trans.end('success');
       })
       .catch(err => {
-        res.status(500).json({error: err.message});
-        logError(err);
-        trans.end('error');
+        handleInstanceError(res, req, err);
       });
   }
 });
@@ -327,21 +299,15 @@ api.get('/instance/init', (req, res) => {
  *         description: Reset completed
  */
 api.get('/instance/reset/:identifier', (req, res) => {
-  const trans = startTransaction({
-    name: '/instance/reset/:identifier',
-    type: 'get',
-  });
   getInstance(client, req.params.identifier)
     .then(ckanInstance => {
       return resetTables(client, ckanInstance.prefix);
     })
     .then(() => {
       res.status(200).json({message: 'Reset completed'});
-      trans.end('success');
     })
     .catch(err => {
       handleInstanceError(res, req, err);
-      trans.end('error');
     });
 });
 
@@ -363,21 +329,15 @@ api.get('/instance/reset/:identifier', (req, res) => {
  *         description: Drop completed
  */
 api.get('/instance/drop/:identifier', (req, res) => {
-  const trans = startTransaction({
-    name: '/instance/drop/:identifier',
-    type: 'get',
-  });
   getInstance(client, req.params.identifier)
     .then(ckanInstance => {
       return dropTables(client, ckanInstance.prefix);
     })
     .then(() => {
       res.status(200).json({message: 'Drop completed'});
-      trans.end('success');
     })
     .catch(err => {
       handleInstanceError(res, req, err);
-      trans.end('error');
     });
 });
 
@@ -398,16 +358,13 @@ api.get('/instance/drop/:identifier', (req, res) => {
  *         description: Init completed
  */
 api.get('/master/init', (req, res) => {
-  const trans = startTransaction({name: '/master/init', type: 'get'});
   initMasterTable(client)
     .then(() => {
       res.status(200).json({message: 'Init completed'});
-      trans.end('success');
     })
     .catch(err => {
       res.status(500).json({error: err.message});
       logError(err);
-      trans.end('error');
     });
 });
 
@@ -428,16 +385,13 @@ api.get('/master/init', (req, res) => {
  *         description: Drop completed
  */
 api.get('/master/drop', (req, res) => {
-  const trans = startTransaction({name: '/master/drop', type: 'get'});
   dropMasterTable(client)
     .then(() => {
       res.status(200).json({message: 'Drop completed'});
-      trans.end('success');
     })
     .catch(err => {
       res.status(500).json({error: err.message});
       logError(err);
-      trans.end('error');
     });
 });
 

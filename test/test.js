@@ -20,7 +20,6 @@ const {
 const fetch = require('node-fetch');
 
 const sampleData = require('./details.json');
-const { get } = require('http');
 
 // get environmental variables
 dotenv.config();
