@@ -41,7 +41,15 @@ const client = new pg_1.Client({
     password: process.env.PGPASSWORD,
     port: parseInt(process.env.PGPORT || '5432'),
 });
-client.connect();
+// connect and reset queues
+client
+    .connect()
+    .then(() => {
+    return index_2.resetQueues(client);
+})
+    .catch(err => {
+    local_logger_1.logError({ message: err });
+});
 // number of parallel processes
 let processCount = 1;
 pm2.apps.forEach(app => {
@@ -90,20 +98,20 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
             ...local_logger_1.localTokens(res),
         });
         return index_1.packageList(ckanInstance.domain, ckanInstance.version).then(async (list) => {
-            local_microservice_1.simpleResponse(200, 'Processing completed', res, trans);
+            // store the list in a db table for persistence across fails
+            await index_2.insertQueue(client, ckanInstance.prefix, list);
+            local_microservice_1.simpleResponse(200, 'Queue created', res, trans);
             // number of parallel calls per process
             let parallelCount = 3 * processCount;
             if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
                 parallelCount = ckanInstance.rate_limit;
             }
-            for (let i = 0; i < list.result.length; i += parallelCount) {
-                const fetchs = [];
-                for (let j = i; j < i + parallelCount; j += 1) {
-                    fetchs.push(node_fetch_1.default(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`));
-                }
-                await Promise.all(fetchs);
+            const fetchs = [];
+            for (let j = 0; j < parallelCount; j += 1) {
+                fetchs.push(node_fetch_1.default(local_logger_1.addToken(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`, res)));
             }
-            trans(true, 'Parallel package processing completed');
+            await Promise.all(fetchs);
+            trans(true, { message: 'Parallel package processing started' });
             return Promise.resolve();
         });
     })
@@ -134,25 +142,41 @@ local_microservice_1.api.get('/process/instance/:identifier', (req, res) => {
  *       500:
  *         $ref: '#/components/responses/500'
  */
-local_microservice_1.api.get('/process/package/:identifier/:id', (req, res) => {
+local_microservice_1.api.get('/process/package/:identifier', (req, res) => {
+    const trans = local_logger_1.startTransaction({
+        name: 'packageShow',
+        ...local_logger_1.localTokens(res),
+    });
     index_2.getInstance(client, req.params.identifier)
         .then(ckanInstance => {
-        const trans = local_logger_1.startTransaction({
-            name: 'packageShow',
-            ...local_logger_1.localTokens(res),
-        });
-        return index_1.packageShow(ckanInstance.domain, ckanInstance.version, req.params.id)
-            .then((ckanPackage) => {
-            trans(true, 'packageShow complete');
-            return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
-        })
-            .then(log => {
-            trans(true, 'processPackage complete');
-            client.query(`INSERT INTO ${index_2.definition_logs_table}
-            (instance, process, package, status, date)
-          VALUES
-            ($1, $2, $3, $4, CURRENT_TIMESTAMP);
-          `, [ckanInstance.id, '/process/package', log.id, log.status]);
+        return index_2.nextPackage(client, ckanInstance).then(id => {
+            if (id) {
+                return index_1.packageShow(ckanInstance.domain, ckanInstance.version, id)
+                    .then((ckanPackage) => {
+                    trans(true, { message: 'packageShow complete' });
+                    return index_2.processPackage(client, ckanInstance.prefix, ckanPackage);
+                })
+                    .then(async (log) => {
+                    await index_2.removeFromQueue(client, ckanInstance, id);
+                    trans(true, {
+                        message: 'processPackage complete',
+                        id: log.id,
+                        status: log.status,
+                    });
+                    // kick off next download
+                    node_fetch_1.default(local_logger_1.addToken(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`, res));
+                })
+                    .catch(err => {
+                    trans(false, { message: err });
+                    index_2.setQueueFailed(client, ckanInstance, id);
+                    // kick off next download
+                    node_fetch_1.default(local_logger_1.addToken(`http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`, res));
+                });
+            }
+            else {
+                trans(true, { message: 'nothing to process' });
+                return Promise.resolve();
+            }
         });
     })
         .then(() => {
@@ -182,7 +206,7 @@ local_microservice_1.api.get('/process/all', (req, res) => {
     index_2.allInstances(client)
         .then(instanceIds => {
         return Promise.all(instanceIds.map(identifier => {
-            return index_2.getInstance(client, identifier).then(ckanInstance => node_fetch_1.default(`http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`));
+            return index_2.getInstance(client, identifier).then(ckanInstance => node_fetch_1.default(local_logger_1.addToken(`http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`, res)));
         }));
     })
         .then(() => {

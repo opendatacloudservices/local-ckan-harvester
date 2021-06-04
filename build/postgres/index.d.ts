@@ -1,9 +1,8 @@
 import { Client } from 'pg';
-import { CkanPackage } from '../ckan/index';
+import { CkanPackage, CkanPackageList } from '../ckan/index';
 import { Response, Request } from 'express';
 export declare const definition_tables: string[];
 export declare const definition_master_table = "ckan_master";
-export declare const definition_logs_table = "ckan_logs";
 export declare type CkanInstance = {
     id: number;
     domain: string;
@@ -12,6 +11,11 @@ export declare type CkanInstance = {
     rate_limit: number | null;
 };
 export declare const handleInstanceError: (res: Response, req: Request, err: Error) => void;
+export declare const insertQueue: (client: Client, prefix: string, ckanPackages: CkanPackageList) => Promise<void>;
+export declare const resetQueues: (client: Client) => Promise<void>;
+export declare const nextPackage: (client: Client, ckanInstance: CkanInstance) => Promise<string | null>;
+export declare const removeFromQueue: (client: Client, ckanInstance: CkanInstance, url: string) => Promise<void>;
+export declare const setQueueFailed: (client: Client, ckanInstance: CkanInstance, url: string) => Promise<void>;
 export declare const packageGetAction: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<string>;
 export declare const processPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<{
     id: string;

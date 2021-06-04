@@ -1,5 +1,5 @@
 import {Client, QueryResult} from 'pg';
-import {CkanPackage, CkanResource} from '../ckan/index';
+import {CkanPackage, CkanPackageList, CkanResource} from '../ckan/index';
 import moment from 'moment';
 import {Response, Request} from 'express';
 import {logError, localTokens} from 'local-logger';
@@ -17,7 +17,6 @@ export const definition_tables = [
 ];
 
 export const definition_master_table = 'ckan_master';
-export const definition_logs_table = 'ckan_logs';
 
 export type CkanInstance = {
   id: number;
@@ -44,6 +43,81 @@ export const handleInstanceError = (
     message: err,
     params: [JSON.stringify(req.params)],
   });
+};
+
+export const insertQueue = (
+  client: Client,
+  prefix: string,
+  ckanPackages: CkanPackageList
+): Promise<void> => {
+  return client
+    .query(
+      `INSERT INTO ${prefix}_queue (url, state) VALUES ${ckanPackages.result
+        .map((p, i) => {
+          return `($${i + 1}, 'new')`;
+        })
+        .join(',')} ON CONFLICT DO NOTHING`,
+      ckanPackages.result
+    )
+    .then(() => {});
+};
+
+export const resetQueues = (client: Client): Promise<void> => {
+  return allInstances(client)
+    .then(clientIds => {
+      return Promise.all(
+        clientIds.map(id => {
+          return getInstance(client, id).then(ckanInstance => {
+            return client.query(
+              `UPDATE ${ckanInstance.prefix}_queue SET state = 'new'`
+            );
+          });
+        })
+      );
+    })
+    .then(() => {});
+};
+
+export const nextPackage = (
+  client: Client,
+  ckanInstance: CkanInstance
+): Promise<string | null> => {
+  return client
+    .query(
+      `UPDATE ${ckanInstance.prefix}_queue
+      SET state = 'downloading' 
+      WHERE id = (
+        SELECT id
+        FROM   ${ckanInstance.prefix}_queue
+        WHERE  state = 'new'
+        LIMIT  1
+      )
+      RETURNING url;`
+    )
+    .then(result => (result.rows.length >= 0 ? result.rows[0].url : null));
+};
+
+export const removeFromQueue = (
+  client: Client,
+  ckanInstance: CkanInstance,
+  url: string
+): Promise<void> => {
+  return client
+    .query(`DELETE FROM ${ckanInstance.prefix}_queue WHERE url = $1`, [url])
+    .then(() => {});
+};
+
+export const setQueueFailed = (
+  client: Client,
+  ckanInstance: CkanInstance,
+  url: string
+): Promise<void> => {
+  return client
+    .query(
+      `UPDATE ${ckanInstance.prefix}_queue SET state= 'failed' WHERE url = $1`,
+      [url]
+    )
+    .then(() => {});
 };
 
 export const packageGetAction = (
@@ -515,24 +589,12 @@ export const initMasterTable = (client: Client): Promise<void> => {
       CONSTRAINT ${definition_master_table}_pkey PRIMARY KEY (id)
     );`
     )
-    .then(() =>
-      client.query(`CREATE TABLE ${definition_logs_table} (
-      id SERIAL,
-      instance integer,
-      process text,
-      package text,
-      status text,
-      date timestamp without time zone,
-      CONSTRAINT ${definition_logs_table}_pkey PRIMARY KEY (id)
-    );`)
-    )
     .then(() => Promise.resolve());
 };
 
 export const dropMasterTable = (client: Client): Promise<void> => {
   return client
     .query(`DROP TABLE ${definition_master_table};`)
-    .then(() => client.query(`DROP TABLE ${definition_logs_table};`))
     .then(() => Promise.resolve());
 };
 
@@ -634,6 +696,13 @@ export const initTables = (
         description text,
         image_display_url text,
         CONSTRAINT ${prefix}_groups_pkey PRIMARY KEY (id)
+    );`)
+    )
+    .then(() =>
+      client.query(`CREATE TABLE ${prefix}_queue (
+        id SERIAL PRIMARY KEY,
+        url text UNIQUE,
+        state text
     );`)
     )
     .then(() =>

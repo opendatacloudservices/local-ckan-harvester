@@ -8,8 +8,12 @@ import {
   getInstance,
   initMasterTable,
   dropMasterTable,
-  definition_logs_table,
   handleInstanceError,
+  insertQueue,
+  resetQueues,
+  nextPackage,
+  removeFromQueue,
+  setQueueFailed,
 } from './postgres/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
@@ -22,7 +26,7 @@ dotenv.config({path: path.join(__dirname, '../.env')});
 
 import {api, catchAll, simpleResponse} from 'local-microservice';
 
-import {logError, startTransaction, localTokens} from 'local-logger';
+import {logError, startTransaction, localTokens, addToken} from 'local-logger';
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -32,7 +36,16 @@ const client = new Client({
   password: process.env.PGPASSWORD,
   port: parseInt(process.env.PGPORT || '5432'),
 });
-client.connect();
+
+// connect and reset queues
+client
+  .connect()
+  .then(() => {
+    return resetQueues(client);
+  })
+  .catch(err => {
+    logError({message: err});
+  });
 
 // number of parallel processes
 let processCount = 1;
@@ -85,24 +98,27 @@ api.get('/process/instance/:identifier', (req, res) => {
       });
       return packageList(ckanInstance.domain, ckanInstance.version).then(
         async list => {
-          simpleResponse(200, 'Processing completed', res, trans);
+          // store the list in a db table for persistence across fails
+          await insertQueue(client, ckanInstance.prefix, list);
+          simpleResponse(200, 'Queue created', res, trans);
           // number of parallel calls per process
           let parallelCount = 3 * processCount;
           if (ckanInstance.rate_limit !== null && ckanInstance.rate_limit > 0) {
             parallelCount = ckanInstance.rate_limit;
           }
-          for (let i = 0; i < list.result.length; i += parallelCount) {
-            const fetchs = [];
-            for (let j = i; j < i + parallelCount; j += 1) {
-              fetchs.push(
-                fetch(
-                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}/${list.result[j]}`
+          const fetchs = [];
+          for (let j = 0; j < parallelCount; j += 1) {
+            fetchs.push(
+              fetch(
+                addToken(
+                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`,
+                  res
                 )
-              );
-            }
-            await Promise.all(fetchs);
+              )
+            );
           }
-          trans(true, 'Parallel package processing completed');
+          await Promise.all(fetchs);
+          trans(true, {message: 'Parallel package processing started'});
           return Promise.resolve();
         }
       );
@@ -135,34 +151,51 @@ api.get('/process/instance/:identifier', (req, res) => {
  *       500:
  *         $ref: '#/components/responses/500'
  */
-api.get('/process/package/:identifier/:id', (req, res) => {
+api.get('/process/package/:identifier', (req, res) => {
+  const trans = startTransaction({
+    name: 'packageShow',
+    ...localTokens(res),
+  });
   getInstance(client, req.params.identifier)
     .then(ckanInstance => {
-      const trans = startTransaction({
-        name: 'packageShow',
-        ...localTokens(res),
+      return nextPackage(client, ckanInstance).then(id => {
+        if (id) {
+          return packageShow(ckanInstance.domain, ckanInstance.version, id)
+            .then((ckanPackage: CkanPackage) => {
+              trans(true, {message: 'packageShow complete'});
+              return processPackage(client, ckanInstance.prefix, ckanPackage);
+            })
+            .then(async log => {
+              await removeFromQueue(client, ckanInstance, id);
+              trans(true, {
+                message: 'processPackage complete',
+                id: log.id,
+                status: log.status,
+              });
+              // kick off next download
+              fetch(
+                addToken(
+                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`,
+                  res
+                )
+              );
+            })
+            .catch(err => {
+              trans(false, {message: err});
+              setQueueFailed(client, ckanInstance, id);
+              // kick off next download
+              fetch(
+                addToken(
+                  `http://localhost:${process.env.PORT}/process/package/${req.params.identifier}`,
+                  res
+                )
+              );
+            });
+        } else {
+          trans(true, {message: 'nothing to process'});
+          return Promise.resolve();
+        }
       });
-
-      return packageShow(
-        ckanInstance.domain,
-        ckanInstance.version,
-        req.params.id
-      )
-        .then((ckanPackage: CkanPackage) => {
-          trans(true, 'packageShow complete');
-          return processPackage(client, ckanInstance.prefix, ckanPackage);
-        })
-        .then(log => {
-          trans(true, 'processPackage complete');
-          client.query(
-            `INSERT INTO ${definition_logs_table}
-            (instance, process, package, status, date)
-          VALUES
-            ($1, $2, $3, $4, CURRENT_TIMESTAMP);
-          `,
-            [ckanInstance.id, '/process/package', log.id, log.status]
-          );
-        });
     })
     .then(() => {
       res.status(200).json({message: 'Processing completed'});
@@ -195,7 +228,10 @@ api.get('/process/all', (req, res) => {
         instanceIds.map(identifier => {
           return getInstance(client, identifier).then(ckanInstance =>
             fetch(
-              `http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`
+              addToken(
+                `http://localhost:${process.env.PORT}/process/instance/${ckanInstance.id}`,
+                res
+              )
             )
           );
         })

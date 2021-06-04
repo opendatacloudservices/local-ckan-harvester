@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.handleInstanceError = exports.definition_logs_table = exports.definition_master_table = exports.definition_tables = void 0;
+exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.setQueueFailed = exports.removeFromQueue = exports.nextPackage = exports.resetQueues = exports.insertQueue = exports.handleInstanceError = exports.definition_master_table = exports.definition_tables = void 0;
 const moment_1 = __importDefault(require("moment"));
 const local_logger_1 = require("local-logger");
 exports.definition_tables = [
@@ -18,7 +18,6 @@ exports.definition_tables = [
     'tags',
 ];
 exports.definition_master_table = 'ckan_master';
-exports.definition_logs_table = 'ckan_logs';
 exports.handleInstanceError = (res, req, err) => {
     if (!res.headersSent) {
         if (err.message === 'Instance not found.') {
@@ -33,6 +32,49 @@ exports.handleInstanceError = (res, req, err) => {
         message: err,
         params: [JSON.stringify(req.params)],
     });
+};
+exports.insertQueue = (client, prefix, ckanPackages) => {
+    return client
+        .query(`INSERT INTO ${prefix}_queue (url, state) VALUES ${ckanPackages.result
+        .map((p, i) => {
+        return `($${i + 1}, 'new')`;
+    })
+        .join(',')} ON CONFLICT DO NOTHING`, ckanPackages.result)
+        .then(() => { });
+};
+exports.resetQueues = (client) => {
+    return exports.allInstances(client)
+        .then(clientIds => {
+        return Promise.all(clientIds.map(id => {
+            return exports.getInstance(client, id).then(ckanInstance => {
+                return client.query(`UPDATE ${ckanInstance.prefix}_queue SET state = 'new'`);
+            });
+        }));
+    })
+        .then(() => { });
+};
+exports.nextPackage = (client, ckanInstance) => {
+    return client
+        .query(`UPDATE ${ckanInstance.prefix}_queue
+      SET state = 'downloading' 
+      WHERE id = (
+        SELECT id
+        FROM   ${ckanInstance.prefix}_queue
+        WHERE  state = 'new'
+        LIMIT  1
+      )
+      RETURNING url;`)
+        .then(result => (result.rows.length >= 0 ? result.rows[0].url : null));
+};
+exports.removeFromQueue = (client, ckanInstance, url) => {
+    return client
+        .query(`DELETE FROM ${ckanInstance.prefix}_queue WHERE url = $1`, [url])
+        .then(() => { });
+};
+exports.setQueueFailed = (client, ckanInstance, url) => {
+    return client
+        .query(`UPDATE ${ckanInstance.prefix}_queue SET state= 'failed' WHERE url = $1`, [url])
+        .then(() => { });
 };
 exports.packageGetAction = (client, prefix, ckanPackage) => {
     return client
@@ -387,21 +429,11 @@ exports.initMasterTable = (client) => {
       date_updated timestamp without time zone,
       CONSTRAINT ${exports.definition_master_table}_pkey PRIMARY KEY (id)
     );`)
-        .then(() => client.query(`CREATE TABLE ${exports.definition_logs_table} (
-      id SERIAL,
-      instance integer,
-      process text,
-      package text,
-      status text,
-      date timestamp without time zone,
-      CONSTRAINT ${exports.definition_logs_table}_pkey PRIMARY KEY (id)
-    );`))
         .then(() => Promise.resolve());
 };
 exports.dropMasterTable = (client) => {
     return client
         .query(`DROP TABLE ${exports.definition_master_table};`)
-        .then(() => client.query(`DROP TABLE ${exports.definition_logs_table};`))
         .then(() => Promise.resolve());
 };
 exports.getInstance = (client, identifier) => {
@@ -469,6 +501,11 @@ exports.initTables = (client, prefix, domain, version, rate_limit, filter) => {
         description text,
         image_display_url text,
         CONSTRAINT ${prefix}_groups_pkey PRIMARY KEY (id)
+    );`))
+        .then(() => client.query(`CREATE TABLE ${prefix}_queue (
+        id SERIAL PRIMARY KEY,
+        url text UNIQUE,
+        state text
     );`))
         .then(() => client.query(`CREATE TABLE ${prefix}_organizations (
         id character varying(36) NOT NULL,
