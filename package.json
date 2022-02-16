@@ -1,5 +1,5 @@
 {
-  "name": "local-govdata-harvester",
+  "name": "@opendatacloudservices/local-ckan-harvester",
   "version": "1.0.0",
   "description": "Harvesting data sets from govdata",
   "main": "./build/index.js",
