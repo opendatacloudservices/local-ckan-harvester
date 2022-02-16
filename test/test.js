@@ -1,4 +1,7 @@
 const dotenv = require('dotenv');
+// get environmental variables
+dotenv.config();
+
 const pg = require('pg');
 const {packageList, packageShow, handleFetch} = require('../build/ckan/index');
 const {closeServer} = require('../build/index');
@@ -21,8 +24,7 @@ const fetch = require('node-fetch');
 
 const sampleData = require('./details.json');
 
-// get environmental variables
-dotenv.config();
+
 
 // connect to postgres (via env vars params)
 const client = new pg.Client({

@@ -20,20 +20,22 @@ const handleFetch = (res) => {
         return Promise.reject(Error(res.statusText || res.status.toString()));
     }
 };
-exports.packageList = (domain, version) => {
+const packageList = (domain, version) => {
     if (version === 1) {
-        return node_fetch_1.default(`https://${domain}/rest/dataset`).then(handleFetch);
+        return (0, node_fetch_1.default)(`https://${domain}/rest/dataset`).then(handleFetch);
     }
     else {
-        return node_fetch_1.default(`https://${domain}/action/package_list`).then(handleFetch);
+        return (0, node_fetch_1.default)(`https://${domain}/action/package_list`).then(handleFetch);
     }
 };
-exports.packageShow = (domain, version, id) => {
+exports.packageList = packageList;
+const packageShow = (domain, version, id) => {
     if (version === 1) {
-        return node_fetch_1.default(`https://${domain}/rest/dataset/${id}`).then(handleFetch);
+        return (0, node_fetch_1.default)(`https://${domain}/rest/dataset/${id}`).then(handleFetch);
     }
     else {
-        return node_fetch_1.default(`https://${domain}/action/package_show?id=${id}`).then(handleFetch);
+        return (0, node_fetch_1.default)(`https://${domain}/action/package_show?id=${id}`).then(handleFetch);
     }
 };
+exports.packageShow = packageShow;
 //# sourceMappingURL=index.js.map

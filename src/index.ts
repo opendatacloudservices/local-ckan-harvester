@@ -14,19 +14,29 @@ import {
   nextPackage,
   removeFromQueue,
   setQueueFailed,
+  deprecatePackages,
 } from './postgres/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import {Client} from 'pg';
 import fetch from 'node-fetch';
-import * as pm2 from 'local-pm2-config';
+import * as pm2 from '@opendatacloudservices/local-pm2-config';
 
 // get environmental variables
 dotenv.config({path: path.join(__dirname, '../.env')});
 
-import {api, catchAll, simpleResponse} from 'local-microservice';
+import {
+  api,
+  catchAll,
+  simpleResponse,
+} from '@opendatacloudservices/local-microservice';
 
-import {logError, startTransaction, localTokens, addToken} from 'local-logger';
+import {
+  logError,
+  startTransaction,
+  localTokens,
+  addToken,
+} from '@opendatacloudservices/local-logger';
 
 // connect to postgres (via env vars params)
 const client = new Client({
@@ -98,6 +108,7 @@ api.get('/process/instance/:identifier', (req, res) => {
       });
       return packageList(ckanInstance.domain, ckanInstance.version).then(
         async list => {
+          await deprecatePackages(client, ckanInstance.prefix);
           // store the list in a db table for persistence across fails
           await insertQueue(client, ckanInstance.prefix, list);
           simpleResponse(200, 'Queue created', res, trans);

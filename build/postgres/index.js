@@ -3,9 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.setQueueFailed = exports.removeFromQueue = exports.nextPackage = exports.resetQueues = exports.insertQueue = exports.handleInstanceError = exports.definition_master_table = exports.definition_tables = void 0;
+exports.allInstances = exports.dropTables = exports.resetTables = exports.initTables = exports.tablesExist = exports.getInstance = exports.dropMasterTable = exports.initMasterTable = exports.masterTableExist = exports.packageUpsertTags = exports.packageUpsertGroups = exports.packageUpsertResources = exports.packageInsertExtras = exports.packageUpsertOrganization = exports.insertPackage = exports.removePackage = exports.processPackage = exports.packageGetAction = exports.setPackageStatus = exports.deprecatePackages = exports.resetState = exports.setQueueFailed = exports.removeFromQueue = exports.nextPackage = exports.resetQueues = exports.insertQueue = exports.handleInstanceError = exports.definition_master_table = exports.definition_tables = void 0;
 const moment_1 = __importDefault(require("moment"));
-const local_logger_1 = require("local-logger");
+const local_logger_1 = require("@opendatacloudservices/local-logger");
 exports.definition_tables = [
     'ref_groups_packages',
     'ref_tags_packages',
@@ -18,7 +18,7 @@ exports.definition_tables = [
     'tags',
 ];
 exports.definition_master_table = 'ckan_master';
-exports.handleInstanceError = (res, req, err) => {
+const handleInstanceError = (res, req, err) => {
     if (!res.headersSent) {
         if (err.message === 'Instance not found.') {
             res.status(404).json({ message: err.message });
@@ -27,13 +27,14 @@ exports.handleInstanceError = (res, req, err) => {
             res.status(500).json({ error: err.message });
         }
     }
-    local_logger_1.logError({
-        ...local_logger_1.localTokens(res),
+    (0, local_logger_1.logError)({
+        ...(0, local_logger_1.localTokens)(res),
         message: err,
         params: [JSON.stringify(req.params)],
     });
 };
-exports.insertQueue = (client, prefix, ckanPackages) => {
+exports.handleInstanceError = handleInstanceError;
+const insertQueue = (client, prefix, ckanPackages) => {
     return client
         .query(`INSERT INTO ${prefix}_queue (url, state) VALUES ${ckanPackages.result
         .map((p, i) => {
@@ -42,18 +43,20 @@ exports.insertQueue = (client, prefix, ckanPackages) => {
         .join(',')} ON CONFLICT DO NOTHING`, ckanPackages.result)
         .then(() => { });
 };
-exports.resetQueues = (client) => {
-    return exports.allInstances(client)
+exports.insertQueue = insertQueue;
+const resetQueues = (client) => {
+    return (0, exports.allInstances)(client)
         .then(clientIds => {
         return Promise.all(clientIds.map(id => {
-            return exports.getInstance(client, id).then(ckanInstance => {
+            return (0, exports.getInstance)(client, id).then(ckanInstance => {
                 return client.query(`UPDATE ${ckanInstance.prefix}_queue SET state = 'new'`);
             });
         }));
     })
         .then(() => { });
 };
-exports.nextPackage = (client, ckanInstance) => {
+exports.resetQueues = resetQueues;
+const nextPackage = (client, ckanInstance) => {
     return client
         .query(`UPDATE ${ckanInstance.prefix}_queue
       SET state = 'downloading' 
@@ -66,17 +69,41 @@ exports.nextPackage = (client, ckanInstance) => {
       RETURNING url;`)
         .then(result => (result.rows.length >= 0 ? result.rows[0].url : null));
 };
-exports.removeFromQueue = (client, ckanInstance, url) => {
+exports.nextPackage = nextPackage;
+const removeFromQueue = (client, ckanInstance, url) => {
     return client
         .query(`DELETE FROM ${ckanInstance.prefix}_queue WHERE url = $1`, [url])
         .then(() => { });
 };
-exports.setQueueFailed = (client, ckanInstance, url) => {
+exports.removeFromQueue = removeFromQueue;
+const setQueueFailed = (client, ckanInstance, url) => {
     return client
-        .query(`UPDATE ${ckanInstance.prefix}_queue SET state= 'failed' WHERE url = $1`, [url])
+        .query(`UPDATE ${ckanInstance.prefix}_queue SET state = 'failed' WHERE url = $1`, [url])
         .then(() => { });
 };
-exports.packageGetAction = (client, prefix, ckanPackage) => {
+exports.setQueueFailed = setQueueFailed;
+const resetState = (client, prefix, id) => {
+    return client
+        .query(`UPDATE ${prefix}_packages SET ckan_status = TO_JSON(STRING_TO_ARRAY(ckan_status, '_'))->>-1 WHERE id = $1`, [id])
+        .then(() => { });
+};
+exports.resetState = resetState;
+const deprecatePackages = (client, prefix) => {
+    return client
+        .query(`UPDATE ${prefix}_packages SET ckan_status = CONCAT('obsolete_', ckan_status)`)
+        .then(() => { });
+};
+exports.deprecatePackages = deprecatePackages;
+const setPackageStatus = (client, prefix, id, status) => {
+    return client
+        .query(`UPDATE ${prefix}_packages SET ckan_status = $1 WHERE id = $2`, [
+        status,
+        id,
+    ])
+        .then(() => { });
+};
+exports.setPackageStatus = setPackageStatus;
+const packageGetAction = (client, prefix, ckanPackage) => {
     return client
         .query(`SELECT id, revision_id FROM ${prefix}_packages WHERE id = $1`, [
         ckanPackage.result.id,
@@ -95,10 +122,12 @@ exports.packageGetAction = (client, prefix, ckanPackage) => {
         }
     });
 };
-exports.processPackage = (client, prefix, ckanPackage) => {
+exports.packageGetAction = packageGetAction;
+const processPackage = (client, prefix, ckanPackage) => {
     // TODO: Apply filter here (as package_list does not support filter)
-    return exports.packageGetAction(client, prefix, ckanPackage).then(async (action) => {
+    return (0, exports.packageGetAction)(client, prefix, ckanPackage).then(async (action) => {
         if (action === 'nothing') {
+            await (0, exports.resetState)(client, prefix, ckanPackage.result.id);
             return Promise.resolve({
                 id: ckanPackage.result.id,
                 status: 'nothing',
@@ -109,7 +138,8 @@ exports.processPackage = (client, prefix, ckanPackage) => {
             if (action === 'update') {
                 // we are not keeping a detailed version history, as the meta data is unreliable anyway
                 // if something changes, we purge the old data and add the new
-                await exports.removePackage(client, prefix, ckanPackage.result.id);
+                // normally a new dataset or rather id is generated by the provider anyway
+                await (0, exports.removePackage)(client, prefix, ckanPackage.result.id);
                 ckanPackage.result.ckan_status = 'updated';
             }
             const inserts = [
@@ -127,7 +157,8 @@ exports.processPackage = (client, prefix, ckanPackage) => {
         }
     });
 };
-exports.removePackage = (client, prefix, packageId) => {
+exports.processPackage = processPackage;
+const removePackage = (client, prefix, packageId) => {
     return client
         .query(`DELETE FROM ${prefix}_packages WHERE id = $1`, [packageId])
         .then(() => client.query(`DELETE FROM ${prefix}_extras WHERE package_id = $1`, [
@@ -204,7 +235,8 @@ exports.removePackage = (client, prefix, packageId) => {
           id IN (SELECT group_id FROM temp WHERE group_count = 0)`))
         .then(() => Promise.resolve());
 };
-exports.insertPackage = (client, prefix, ckanPackage) => {
+exports.removePackage = removePackage;
+const insertPackage = (client, prefix, ckanPackage) => {
     const r = ckanPackage.result;
     return client
         .query(`INSERT INTO ${prefix}_packages (
@@ -242,7 +274,8 @@ exports.insertPackage = (client, prefix, ckanPackage) => {
         return Promise.resolve();
     });
 };
-exports.packageUpsertOrganization = (client, prefix, ckanPackage) => {
+exports.insertPackage = insertPackage;
+const packageUpsertOrganization = (client, prefix, ckanPackage) => {
     if ('organization' in ckanPackage.result) {
         const o = ckanPackage.result.organization;
         return client
@@ -272,7 +305,8 @@ exports.packageUpsertOrganization = (client, prefix, ckanPackage) => {
         return Promise.resolve();
     }
 };
-exports.packageInsertExtras = (client, prefix, ckanPackage) => {
+exports.packageUpsertOrganization = packageUpsertOrganization;
+const packageInsertExtras = (client, prefix, ckanPackage) => {
     if (ckanPackage.result.extras && ckanPackage.result.extras.length > 0) {
         const query = `INSERT INTO ${prefix}_extras (package_id, key, value) 
       SELECT 
@@ -294,7 +328,8 @@ exports.packageInsertExtras = (client, prefix, ckanPackage) => {
         return Promise.resolve();
     }
 };
-exports.packageUpsertResources = async (client, prefix, ckanPackage) => {
+exports.packageInsertExtras = packageInsertExtras;
+const packageUpsertResources = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.resources && ckanPackage.result.resources.length > 0) {
         const columns = [
             'license_attribution_by_text',
@@ -344,7 +379,8 @@ exports.packageUpsertResources = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
-exports.packageUpsertGroups = async (client, prefix, ckanPackage) => {
+exports.packageUpsertResources = packageUpsertResources;
+const packageUpsertGroups = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.groups && ckanPackage.result.groups.length > 0) {
         for (let g = 0; g < ckanPackage.result.groups.length; g += 1) {
             await client.query(`INSERT INTO ${prefix}_groups (id, name, display_name, title, description, image_display_url)
@@ -375,7 +411,8 @@ exports.packageUpsertGroups = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
-exports.packageUpsertTags = async (client, prefix, ckanPackage) => {
+exports.packageUpsertGroups = packageUpsertGroups;
+const packageUpsertTags = async (client, prefix, ckanPackage) => {
     if (ckanPackage.result.tags && ckanPackage.result.tags.length > 0) {
         for (let t = 0; t < ckanPackage.result.tags.length; t += 1) {
             await client.query(`INSERT INTO ${prefix}_tags (id, name, display_name, state, vocabulary_id)
@@ -403,7 +440,8 @@ exports.packageUpsertTags = async (client, prefix, ckanPackage) => {
     }
     return Promise.resolve();
 };
-exports.masterTableExist = (client) => {
+exports.packageUpsertTags = packageUpsertTags;
+const masterTableExist = (client) => {
     return client
         .query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = '${exports.definition_master_table}'`)
         .then(result => {
@@ -415,7 +453,8 @@ exports.masterTableExist = (client) => {
         }
     });
 };
-exports.initMasterTable = (client) => {
+exports.masterTableExist = masterTableExist;
+const initMasterTable = (client) => {
     return client
         .query(`CREATE TABLE ${exports.definition_master_table} (
       id SERIAL,
@@ -431,12 +470,14 @@ exports.initMasterTable = (client) => {
     );`)
         .then(() => Promise.resolve());
 };
-exports.dropMasterTable = (client) => {
+exports.initMasterTable = initMasterTable;
+const dropMasterTable = (client) => {
     return client
         .query(`DROP TABLE ${exports.definition_master_table};`)
         .then(() => Promise.resolve());
 };
-exports.getInstance = (client, identifier) => {
+exports.dropMasterTable = dropMasterTable;
+const getInstance = (client, identifier) => {
     return client
         .query(`SELECT id, prefix, domain, version, rate_limit FROM ${exports.definition_master_table} WHERE ${isNaN(Number(identifier)) ? 'prefix' : 'id'} = $1`, [isNaN(Number(identifier)) ? identifier : Number(identifier)])
         .then(result => {
@@ -454,7 +495,8 @@ exports.getInstance = (client, identifier) => {
         }
     });
 };
-exports.tablesExist = (client, prefix, tables) => {
+exports.getInstance = getInstance;
+const tablesExist = (client, prefix, tables) => {
     return client
         .query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
         .then(result => {
@@ -474,8 +516,9 @@ exports.tablesExist = (client, prefix, tables) => {
         }
     });
 };
-exports.initTables = (client, prefix, domain, version, rate_limit, filter) => {
-    return exports.tablesExist(client, prefix, exports.definition_tables)
+exports.tablesExist = tablesExist;
+const initTables = (client, prefix, domain, version, rate_limit, filter) => {
+    return (0, exports.tablesExist)(client, prefix, exports.definition_tables)
         .then(exists => {
         if (exists) {
             Promise.reject(Error('Looks like the tables you are trying to create, do already exist.'));
@@ -489,7 +532,7 @@ exports.initTables = (client, prefix, domain, version, rate_limit, filter) => {
         prefix,
         domain,
         version,
-        moment_1.default().format('YYYY-MM-DD hh:mm:ss'),
+        (0, moment_1.default)().format('YYYY-MM-DD hh:mm:ss'),
         filter,
         rate_limit === 0 ? null : rate_limit,
     ]))
@@ -648,8 +691,9 @@ exports.initTables = (client, prefix, domain, version, rate_limit, filter) => {
         return Promise.resolve();
     });
 };
-exports.resetTables = (client, prefix) => {
-    return exports.tablesExist(client, prefix, exports.definition_tables)
+exports.initTables = initTables;
+const resetTables = (client, prefix) => {
+    return (0, exports.tablesExist)(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
             return Promise.reject('Looks like the tables you are trying to reset, do not all exist.');
@@ -662,8 +706,9 @@ exports.resetTables = (client, prefix) => {
         return Promise.resolve();
     });
 };
-exports.dropTables = (client, prefix) => {
-    return exports.tablesExist(client, prefix, exports.definition_tables)
+exports.resetTables = resetTables;
+const dropTables = (client, prefix) => {
+    return (0, exports.tablesExist)(client, prefix, exports.definition_tables)
         .then(exists => {
         if (!exists) {
             return Promise.reject('Looks like the tables you are trying to drop, do not all exist.');
@@ -676,11 +721,13 @@ exports.dropTables = (client, prefix) => {
         return Promise.resolve();
     });
 };
-exports.allInstances = (client) => {
+exports.dropTables = dropTables;
+const allInstances = (client) => {
     return client
         .query(`SELECT id FROM ${exports.definition_master_table} WHERE active = TRUE;`, [])
         .then(result => {
         return result.rows.map(row => row.id);
     });
 };
+exports.allInstances = allInstances;
 //# sourceMappingURL=index.js.map

@@ -16,6 +16,9 @@ export declare const resetQueues: (client: Client) => Promise<void>;
 export declare const nextPackage: (client: Client, ckanInstance: CkanInstance) => Promise<string | null>;
 export declare const removeFromQueue: (client: Client, ckanInstance: CkanInstance, url: string) => Promise<void>;
 export declare const setQueueFailed: (client: Client, ckanInstance: CkanInstance, url: string) => Promise<void>;
+export declare const resetState: (client: Client, prefix: string, id: string) => Promise<void>;
+export declare const deprecatePackages: (client: Client, prefix: string) => Promise<void>;
+export declare const setPackageStatus: (client: Client, prefix: string, id: string, status: string) => Promise<void>;
 export declare const packageGetAction: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<string>;
 export declare const processPackage: (client: Client, prefix: string, ckanPackage: CkanPackage) => Promise<{
     id: string;
